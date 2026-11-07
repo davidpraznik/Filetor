@@ -20,6 +20,7 @@ struct BreadcrumbBar: View {
 
     var body: some View {
         HStack(spacing: 0) {
+            ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6 * s) {
                     ForEach(Array(crumbs.enumerated()), id: \.offset) { i, url in
@@ -45,11 +46,14 @@ struct BreadcrumbBar: View {
                             }
                         }
                         .buttonStyle(.plain)
+                        .id(i)
                     }
                 }
                 .padding(.horizontal, 14)
             }
-            .defaultScrollAnchor(.trailing)
+            .onAppear { proxy.scrollTo(crumbs.count - 1, anchor: .trailing) }
+            .onChange(of: pane.currentURL) { _, _ in proxy.scrollTo(crumbs.count - 1, anchor: .trailing) }
+            }
             Button(action: onNewTab) {
                 Image(systemName: "plus")
                     .font(.system(size: 14 * s))

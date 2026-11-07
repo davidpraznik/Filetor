@@ -296,8 +296,9 @@ struct CustomizeSheet: View {
                     stripCell(entry, s)
                 }
             }
+            .frame(height: stripHeight(s))
             .padding(14)
-            .frame(maxWidth: .infinity, minHeight: 100 * s, alignment: .topLeading)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
             .background(RoundedRectangle(cornerRadius: 12).fill(Color.primary.opacity(0.025)))
             .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary.opacity(0.15)))
             .dropDestination(for: String.self) { items, _ in
@@ -328,6 +329,15 @@ struct CustomizeSheet: View {
         .frame(width: min(780 * s, 1180))
     }
 
+    /// Height of the toolbar strip for the current entry count (computed, so the grey box always fits every row).
+    private func stripHeight(_ s: CGFloat) -> CGFloat {
+        let inner = min(780 * s, 1180) - 48 - 28
+        let cols = max(1, Int(inner / (118 * s)))
+        let rows = max(1, (model.entries.count + cols - 1) / cols)
+        let cellH = 38 * s + 6 * s + 19 * s
+        return CGFloat(rows) * cellH + CGFloat(rows - 1) * 14 * s
+    }
+
     private func bubble(_ kind: String, _ s: CGFloat) -> some View {
         let line = Color.primary.opacity(0.18)
         let h = 38 * s
@@ -341,7 +351,10 @@ struct CustomizeSheet: View {
                 }
                 .font(.system(size: 12 * s, weight: .medium))
             case "title":
-                Text("Folder").font(.system(size: 16 * s)).lineLimit(1).fixedSize().frame(height: h)
+                Circle().fill(Color(nsColor: .controlBackgroundColor))
+                    .overlay(Circle().strokeBorder(line))
+                    .frame(width: h, height: h)
+                Image(systemName: "folder").font(.system(size: 14 * s))
             case "flex":
                 RoundedRectangle(cornerRadius: 7).fill(Color(nsColor: .controlBackgroundColor))
                     .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(line))
