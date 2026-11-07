@@ -38,7 +38,7 @@ struct SettingsSheet: View {
         let w = 340 * s   // width of the control column; Done aligns to its right edge
 
         VStack(alignment: .leading, spacing: 20) {
-            Text("Customize").font(.system(size: 22 * s))
+            Text("Settings").font(.system(size: 22 * s))
 
             Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 28, verticalSpacing: 16) {
                 GridRow {
@@ -125,7 +125,7 @@ struct SettingsSheet: View {
                 }
             }
             Divider()
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 9 * s) {
                 Text(aboutLine).fontWeight(.light)
                 HStack {
                     Link("github.com/\(UpdateChecker.repo)", destination: URL(string: "https://github.com/\(UpdateChecker.repo)")!)

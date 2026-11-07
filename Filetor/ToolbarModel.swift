@@ -79,7 +79,7 @@ enum ToolCatalog {
                 isOn: { $0.showInfo }, run: { $0.showInfo.toggle() }),
         ToolDef(id: "connect", title: "Connect", symbol: "globe",
                 run: { $0.showConnect = true }),
-        ToolDef(id: "customize", title: "Customize", symbol: "gearshape",
+        ToolDef(id: "customize", title: "Settings", symbol: "gearshape",
                 run: { $0.showSettings = true }),
     ]
 

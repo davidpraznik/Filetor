@@ -12,7 +12,7 @@ struct PathsButtonStyle: ButtonStyle {
             .padding(.vertical, 5 * scale)
             .foregroundStyle(prominent ? Color.white : Color.primary)
             .background(
-                shape.fill(prominent ? AnyShapeStyle(.tint) : AnyShapeStyle(Color(nsColor: .controlBackgroundColor)))
+                shape.fill(prominent ? AnyShapeStyle(Color.filetor) : AnyShapeStyle(Color(nsColor: .controlBackgroundColor)))
             )
             .overlay(shape.strokeBorder(Color.primary.opacity(prominent ? 0 : 0.18)))
             .opacity(configuration.isPressed ? 0.8 : 1)
@@ -113,9 +113,12 @@ private struct FloatingPanel<Panel: View>: ViewModifier {
                         .onTapGesture { isPresented = false }
                     panel()
                         .environment(\.closePanel, { isPresented = false })
-                        .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
+                        .background {
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color(nsColor: .windowBackgroundColor))
+                                .shadow(color: .black.opacity(0.3), radius: 24, y: 8)
+                        }
                         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary.opacity(0.12)))
-                        .shadow(color: .black.opacity(0.3), radius: 24, y: 8)
                 }
             }
         }
