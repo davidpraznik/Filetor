@@ -99,6 +99,7 @@ struct SettingsSheet: View {
                     Button("Done") { dismiss() }
                         .buttonStyle(PathsButtonStyle(scale: s, prominent: true))
                         .keyboardShortcut(.defaultAction)
+                        .background { Button("") { dismiss() }.keyboardShortcut(.cancelAction).opacity(0).frame(width: 0, height: 0) }
                         .frame(maxWidth: .infinity, alignment: .trailing)
                 }
             }

@@ -355,6 +355,7 @@ struct CustomizeSheet: View {
                 Button("Done") { dismiss() }
                     .buttonStyle(PathsButtonStyle(scale: s, prominent: true))
                     .keyboardShortcut(.defaultAction)
+                    .background { Button("") { dismiss() }.keyboardShortcut(.cancelAction).opacity(0).frame(width: 0, height: 0) }
             }
         }
         .font(.system(size: 13 * s))
