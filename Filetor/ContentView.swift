@@ -23,7 +23,6 @@ struct ContentView: View {
                 }
         }
         .navigationTitle(pane.currentURL.lastPathComponent.isEmpty ? "/" : pane.currentURL.lastPathComponent)
-        .searchable(text: $pane.filter, prompt: "Filter")
         .toolbar {
             ToolbarItemGroup(placement: .navigation) {
                 Button { app.active.goBack() } label: { Image(systemName: "chevron.left") }
@@ -39,16 +38,7 @@ struct ContentView: View {
                     .keyboardShortcut(.upArrow, modifiers: .command)
                     .help("Enclosing Folder")
             }
-            ToolbarItemGroup {
-                if app.transfers.hasActive {
-                    Button { showTransfers.toggle() } label: {
-                        Label("\(Int(app.transfers.overall * 100))%", systemImage: "arrow.left.arrow.right.circle")
-                    }
-                    .help("Transfers")
-                    .popover(isPresented: $showTransfers) {
-                        TransferList(manager: app.transfers)
-                    }
-                }
+            ToolbarItemGroup(placement: .primaryAction) {
                 Button { app.dual.toggle() } label: {
                     Image(systemName: "rectangle.split.2x1")
                 }
@@ -58,6 +48,21 @@ struct ContentView: View {
                 }
                 .keyboardShortcut(".", modifiers: [.command, .shift])
                 .help("Show or Hide Hidden Files")
+            }
+            ToolbarItem(placement: .primaryAction) {
+                FilterField(text: $pane.filter)
+            }
+            // Transfer indicator: last item, far right of the toolbar.
+            ToolbarItem(placement: .primaryAction) {
+                if app.transfers.hasActive {
+                    Button { showTransfers.toggle() } label: {
+                        Label("\(Int(app.transfers.overall * 100))%", systemImage: "arrow.left.arrow.right.circle")
+                    }
+                    .help("Transfers")
+                    .popover(isPresented: $showTransfers) {
+                        TransferList(manager: app.transfers)
+                    }
+                }
             }
         }
         .background {
@@ -189,5 +194,25 @@ struct DualPaneView: View {
                 PaneContainer(app: app, index: 0)
             }
         }
+    }
+}
+
+struct FilterField: View {
+    @Binding var text: String
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+            TextField("Filter", text: $text).textFieldStyle(.plain)
+            if !text.isEmpty {
+                Button { text = "" } label: { Image(systemName: "xmark.circle.fill") }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .frame(width: 180)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
     }
 }
