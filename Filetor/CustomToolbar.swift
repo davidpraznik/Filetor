@@ -207,7 +207,7 @@ struct CustomToolbar: View {
         case "search":
             @Bindable var pane = app.active
             VStack(spacing: 3) {
-                FilterField(text: $pane.filter)
+                FilterField(text: $pane.filter, focusTrigger: app.focusSearch)
                 if model.showLabels {
                     Text("Search").font(.system(size: 10.5 * s)).foregroundStyle(.secondary)
                 }
@@ -274,13 +274,17 @@ struct TransferButton: View {
 
 struct FilterField: View {
     @Binding var text: String
+    var focusTrigger = 0
     @AppStorage("textSize") private var textSize = 1
+    @FocusState private var focused: Bool
 
     var body: some View {
         let s = UIScale.value(textSize)
         HStack(spacing: 4) {
             Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
             TextField("Filter", text: $text).textFieldStyle(.plain)
+                .focused($focused)
+                .onChange(of: focusTrigger) { _, _ in focused = true }
             if !text.isEmpty {
                 Button { text = "" } label: { Image(systemName: "xmark.circle.fill") }
                     .buttonStyle(.plain)

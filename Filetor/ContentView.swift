@@ -54,6 +54,15 @@ struct ContentView: View {
             }
             .ignoresSafeArea(.container, edges: .top)
         }
+        .overlay(alignment: .bottom) {
+            if app.showShortcuts {
+                ShortcutsPanel(app: app).transition(.move(edge: .bottom))
+            }
+        }
+        .animation(.easeInOut(duration: 0.18), value: app.showShortcuts)
+        .overlay {
+            if app.showPalette { CommandPalette(app: app) }
+        }
         .preferredColorScheme(appearance == 0 ? .light : (appearance == 1 ? .dark : nil))
         .tint(SettingsSheet.accents[min(max(accent, 0), SettingsSheet.accents.count - 1)])
         .navigationTitle(pane.currentURL.lastPathComponent.isEmpty ? "/" : pane.currentURL.lastPathComponent)
@@ -69,6 +78,11 @@ struct ContentView: View {
                 Button("Enclosing") { app.active.goUp() }.keyboardShortcut(.upArrow, modifiers: .command)
                 Button("Hidden") { app.active.toggleHidden() }.keyboardShortcut(".", modifiers: [.command, .shift])
                 Button("Reload") { app.active.load() }.keyboardShortcut("r", modifiers: [.command, .option])
+                if app.showPalette {
+                    Button("Close Palette") { app.showPalette = false }.keyboardShortcut(.escape, modifiers: [])
+                } else if app.showShortcuts {
+                    Button("Close Shortcuts") { app.showShortcuts = false }.keyboardShortcut(.escape, modifiers: [])
+                }
             }
             .opacity(0)
             .allowsHitTesting(false)
@@ -225,7 +239,29 @@ struct DualPaneView: View {
 struct NativeToolbarRemover: NSViewRepresentable {
     let trigger: String
 
-    func makeNSView(context: Context) -> NSView { NSView() }
+    /// Removes the window's native toolbar and keeps removing it whenever SwiftUI or AppKit
+    /// brings it back (popovers, palette, sheets, focus changes), so the sidebar button never shows.
+    final class Watcher: NSView {
+        nonisolated(unsafe) private var observer: NSObjectProtocol?
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if let o = observer { NotificationCenter.default.removeObserver(o); observer = nil }
+            guard let window else { return }
+            window.toolbar = nil
+            observer = NotificationCenter.default.addObserver(forName: NSWindow.didUpdateNotification, object: window, queue: .main) { [weak window] _ in
+                MainActor.assumeIsolated {
+                    if window?.toolbar != nil { window?.toolbar = nil }
+                }
+            }
+        }
+
+        deinit {
+            if let o = observer { NotificationCenter.default.removeObserver(o) }
+        }
+    }
+
+    func makeNSView(context: Context) -> NSView { Watcher() }
 
     func updateNSView(_ view: NSView, context: Context) {
         DispatchQueue.main.async {

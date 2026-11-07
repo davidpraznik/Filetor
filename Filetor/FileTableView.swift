@@ -406,6 +406,21 @@ struct FileTableView: NSViewRepresentable {
                 NSPasteboard.general.setString(paths, forType: .string)
             })
             menu.addItem(item("Get Info") { [weak self] in self?.parent.app.getInfo(urls) })
+            let shareItems = urls.sorted { $0.path < $1.path }
+            let shareMenu = NSMenu()
+            for name in [NSSharingService.Name.sendViaAirDrop, .composeEmail, .composeMessage] {
+                guard let service = NSSharingService(named: name), service.canPerform(withItems: shareItems) else { continue }
+                let mi = item(service.menuItemTitle) { service.perform(withItems: shareItems) }
+                let img = service.image.copy() as? NSImage
+                img?.size = NSSize(width: 16, height: 16)
+                mi.image = img
+                shareMenu.addItem(mi)
+            }
+            if shareMenu.items.isEmpty == false {
+                let shareItem = NSMenuItem(title: "Share", action: nil, keyEquivalent: "")
+                shareItem.submenu = shareMenu
+                menu.addItem(shareItem)
+            }
             menu.addItem(item("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting(Array(urls)) })
             menu.addItem(item("Open in Terminal") { [weak self] in
                 guard let first = urls.sorted(by: { $0.path < $1.path }).first else { return }

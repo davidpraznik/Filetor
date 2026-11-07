@@ -32,6 +32,9 @@ final class AppModel {
         (UserDefaults.standard.object(forKey: "showSidebar") as? Bool ?? true) ? .all : .detailOnly
     var showCustomize = false
     var showSettings = false
+    var showShortcuts = false
+    var focusSearch = 0
+    var showPalette = false
     var showConnect = false
     let favorites = FavoritesStore()
     let network = NetworkBrowser()

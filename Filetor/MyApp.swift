@@ -37,6 +37,12 @@ import SwiftUI
             CommandGroup(after: .toolbar) {
                 Button(app.showInfo ? "Hide Info Panel" : "Show Info Panel") { app.showInfo.toggle() }
                     .keyboardShortcut("i", modifiers: [.command, .option])
+                Button(app.showShortcuts ? "Hide Keyboard Shortcuts" : "Show Keyboard Shortcuts") { app.showShortcuts.toggle() }
+                    .keyboardShortcut("k", modifiers: [.command, .option])
+                Button("Command Palette…") { app.showPalette.toggle() }
+                    .keyboardShortcut("k", modifiers: .command)
+                Button("Search") { app.focusSearch += 1 }
+                    .keyboardShortcut("f", modifiers: .command)
                 Button("Customize Toolbar…") { app.showCustomize = true }
                 Button("Restore Toolbar Defaults") { app.toolbarModel.restoreDefaults() }
             }
@@ -73,8 +79,6 @@ import SwiftUI
                 Divider()
                 Button("Get Info") { app.getInfo(app.active.selection) }
                     .keyboardShortcut("i", modifiers: .command)
-                    .disabled(app.active.selection.isEmpty)
-                Button("Share…") { app.share(app.active.selection) }
                     .disabled(app.active.selection.isEmpty)
                 Button("Compress") { app.compress(app.active.selection) }
                     .disabled(app.active.selection.isEmpty)

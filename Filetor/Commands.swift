@@ -120,8 +120,6 @@ nonisolated enum FolderAnalysis {
 
 // MARK: - Commands
 
-@MainActor private var sharePickerHolder: NSSharingServicePicker?
-
 extension AppModel {
     func chooseFolderAndTransfer(_ urls: Set<URL>, move: Bool) {
         guard !urls.isEmpty else { return }
@@ -134,13 +132,6 @@ extension AppModel {
         panel.directoryURL = active.currentURL
         guard panel.runModal() == .OK, let dir = panel.url else { return }
         dropTransfer(Array(urls), into: dir, move: move)
-    }
-
-    func share(_ urls: Set<URL>) {
-        guard !urls.isEmpty, let view = NSApp.keyWindow?.contentView else { return }
-        let picker = NSSharingServicePicker(items: urls.sorted { $0.path < $1.path })
-        sharePickerHolder = picker
-        picker.show(relativeTo: NSRect(x: view.bounds.midX, y: view.bounds.maxY - 60, width: 1, height: 1), of: view, preferredEdge: .minY)
     }
 
     func openApps(for urls: Set<URL>) -> [URL] {
