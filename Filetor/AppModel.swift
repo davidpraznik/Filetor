@@ -33,6 +33,10 @@ final class AppModel {
     var showCustomize = false
     var showSettings = false
     var showConnect = false
+    /// Info panel on the right (Get Info). Persisted.
+    var showInfo = UserDefaults.standard.bool(forKey: "showInfoPanel") {
+        didSet { UserDefaults.standard.set(showInfo, forKey: "showInfoPanel") }
+    }
     let updater = UpdateChecker()
     /// Files collected in the sidebar Drop Stack.
     var dropStack: [URL] = []

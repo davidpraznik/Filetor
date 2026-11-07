@@ -37,6 +37,7 @@ struct SettingsSheet: View {
 
     var body: some View {
         @Bindable var tb = app.toolbarModel
+        @Bindable var am = app
         let w = 340 * s   // width of the control column; Done aligns to its right edge
 
         VStack(alignment: .leading, spacing: 20) {
@@ -77,6 +78,7 @@ struct SettingsSheet: View {
                         Toggle("Show item count and free space", isOn: $statusBar)
                         Toggle("Open with two panes", isOn: $startDual)
                         Toggle("Show sidebar", isOn: $showSidebar)
+                        Toggle("Show info panel", isOn: $am.showInfo)
                     }
                 }
                 GridRow {

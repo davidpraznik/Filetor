@@ -36,7 +36,13 @@ struct ContentView: View {
                         }
                     }
                 Divider()
-                DualPaneView(app: app)
+                HStack(spacing: 0) {
+                    DualPaneView(app: app)
+                    if app.showInfo {
+                        Divider()
+                        InfoPanel(app: app)
+                    }
+                }
                     .alert("Filetor", isPresented: Binding(
                         get: { app.alert != nil },
                         set: { if !$0 { app.alert = nil } }
