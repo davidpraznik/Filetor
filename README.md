@@ -38,6 +38,10 @@ I made it for my own work, where I move and compare files between folders, disks
 - ⌥⌘K shows all keyboard shortcuts in tabs at the bottom of the window.
 - ⌘F moves focus to the search field in the toolbar.
 
+<p align="center">
+  <img src="docs/filetor-shortcuts-v3.png" alt="Keyboard shortcuts panel in Filetor" width="100%">
+</p>
+
 **Customizable toolbar**
 - Choose which tools are in the toolbar: click an item to add or remove it, or drag it in or out.
 - Drag items inside the toolbar to change their order. Show labels adds a name under each icon.
@@ -47,7 +51,7 @@ I made it for my own work, where I move and compare files between folders, disks
 ## Settings
 
 <p align="center">
-  <img src="docs/filetor-settings-v3.png" alt="Filetor Settings in light and dark appearance" width="100%">
+  <img src="docs/filetor-settings-v4.png" alt="Filetor Settings in light and dark appearance" width="100%">
 </p>
 
 - Appearance: Light, Dark or Auto.

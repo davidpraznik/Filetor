@@ -5,8 +5,22 @@ struct BreadcrumbBar: View {
     let pane: PaneModel
     let onNewTab: () -> Void
     @AppStorage("textSize") private var textSize = 1
+    @State private var contentWidth: CGFloat = 0
+    @State private var viewWidth: CGFloat = 0
 
     private var s: CGFloat { UIScale.value(textSize) }
+
+    /// Shows the end of a long path, or the start when everything fits. Runs again whenever the pane is resized,
+    /// so an offset from an earlier, narrower layout never sticks.
+    private func align(_ proxy: ScrollViewProxy) {
+        DispatchQueue.main.async {
+            if contentWidth <= viewWidth + 0.5 {
+                proxy.scrollTo("start", anchor: .leading)
+            } else {
+                proxy.scrollTo("end", anchor: .trailing)
+            }
+        }
+    }
 
     /// Mounted volume (under /Volumes) the pane is in, if any. Its crumbs start at the volume, not at the boot disk.
     private var volumeRoot: URL? {
@@ -44,6 +58,8 @@ struct BreadcrumbBar: View {
         HStack(spacing: 0) {
             ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 0) {
+                Color.clear.frame(width: 0, height: 1).id("start")
                 HStack(spacing: 6 * s) {
                     ForEach(Array(crumbs.enumerated()), id: \.offset) { i, url in
                         if i > 0 {
@@ -72,9 +88,24 @@ struct BreadcrumbBar: View {
                     }
                 }
                 .padding(.horizontal, 14)
+                Color.clear.frame(width: 0, height: 1).id("end")
+                }
+                .background(GeometryReader { g in
+                    Color.clear.onChange(of: g.size.width, initial: true) { _, w in contentWidth = w; align(proxy) }
+                })
             }
-            .onAppear { proxy.scrollTo(crumbs.count - 1, anchor: .trailing) }
-            .onChange(of: pane.currentURL) { _, _ in proxy.scrollTo(crumbs.count - 1, anchor: .trailing) }
+            .background(GeometryReader { g in
+                Color.clear.onChange(of: g.size.width, initial: true) { _, w in viewWidth = w; align(proxy) }
+            })
+            // Soft fade at the left edge, so a long path that scrolls under it never ends hard against the border.
+            .mask(
+                HStack(spacing: 0) {
+                    LinearGradient(colors: [.clear, .black], startPoint: .leading, endPoint: .trailing)
+                        .frame(width: 24 * s)
+                    Rectangle()
+                }
+            )
+            .onChange(of: pane.currentURL) { _, _ in align(proxy) }
             }
             Button(action: onNewTab) {
                 Image(systemName: "plus")
