@@ -41,6 +41,104 @@ final class AppModel {
 
     func newTab() { activeGroup.newTab() }
 
+    func copyPath() {
+        let sel = active.selection
+        let paths = sel.isEmpty
+            ? [active.currentURL.path]
+            : sel.map(\.path).sorted()
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(paths.joined(separator: "\n"), forType: .string)
+    }
+
+    // MARK: More actions
+
+    func openSelection() { active.open(active.selection) }
+
+    func newFile() {
+        let pane = active
+        let url = FileTools.unique(pane.currentURL.appending(path: "untitled"))
+        if FileManager.default.createFile(atPath: url.path, contents: nil) {
+            pane.load()
+            let created = pane.items.filter { $0.name == url.lastPathComponent }.map(\.id)
+            pane.selection = Set(created)
+            if let u = created.first { beginRename([u]) }
+        } else {
+            alert = "Could not create the file."
+        }
+    }
+
+    func duplicate(_ urls: Set<URL>) {
+        let dir = active.currentURL
+        let items = urls.sorted { $0.lastPathComponent < $1.lastPathComponent }.map { (src: $0, dstDir: dir) }
+        transfers.start(items: items, move: false)
+    }
+
+    func quickLook(_ urls: Set<URL>) {
+        guard !urls.isEmpty else { return }
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/qlmanage")
+        p.arguments = ["-p"] + urls.map(\.path).sorted()
+        p.standardOutput = FileHandle.nullDevice
+        p.standardError = FileHandle.nullDevice
+        try? p.run()
+    }
+
+    func touch(_ urls: Set<URL>) {
+        for url in urls {
+            try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: url.path)
+        }
+        refresh()
+    }
+
+    func openTerminal() {
+        NSWorkspace.shared.open([active.currentURL],
+                                withApplicationAt: URL(fileURLWithPath: "/System/Applications/Utilities/Terminal.app"),
+                                configuration: NSWorkspace.OpenConfiguration())
+    }
+
+    func airDrop(_ urls: Set<URL>) {
+        guard !urls.isEmpty else { return }
+        NSSharingService(named: .sendViaAirDrop)?.perform(withItems: Array(urls))
+    }
+
+    func folderSize(_ urls: Set<URL>) {
+        let list = urls.sorted { $0.lastPathComponent < $1.lastPathComponent }
+        Task {
+            let lines = await Task.detached { () -> [String] in
+                list.map { "\($0.lastPathComponent): " + ByteCountFormatter.string(fromByteCount: FileTools.size(of: $0), countStyle: .file) }
+            }.value
+            alert = lines.joined(separator: "\n")
+        }
+    }
+
+    func compress(_ urls: Set<URL>) {
+        let dir = active.currentURL
+        let list = urls.sorted { $0.lastPathComponent < $1.lastPathComponent }
+        Task {
+            let err = await Task.detached { FileTools.compress(list, in: dir) }.value
+            refresh()
+            if let err { alert = err }
+        }
+    }
+
+    func decompress(_ urls: Set<URL>) {
+        let dir = active.currentURL
+        let list = urls.sorted { $0.lastPathComponent < $1.lastPathComponent }
+        Task {
+            let err = await Task.detached { FileTools.decompress(list, in: dir) }.value
+            refresh()
+            if let err { alert = err }
+        }
+    }
+
+    func swapPanes() {
+        guard dual else { return }
+        let a = groups[0], b = groups[1]
+        let tabs = a.tabs, sel = a.selected
+        a.tabs = b.tabs; a.selected = b.selected
+        b.tabs = tabs; b.selected = sel
+    }
+
     func closeTab() {
         if activeGroup.tabs.count > 1 {
             activeGroup.close(at: activeGroup.selected)
