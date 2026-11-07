@@ -48,7 +48,9 @@ struct FileTableView: NSViewRepresentable {
         add("size", "Size", 90, min: 60, right: true)
         let visible = Coordinator.visibleColumns()
         for col in table.tableColumns { col.isHidden = col.identifier.rawValue != "name" && !visible.contains(col.identifier.rawValue) }
-        table.tableColumns[0].resizingMask = .autoresizingMask
+        table.allowsColumnResizing = true
+        for col in table.tableColumns { col.resizingMask = .userResizingMask }
+        table.tableColumns[0].resizingMask = [.autoresizingMask, .userResizingMask]
 
         let menu = NSMenu()
         menu.delegate = c
