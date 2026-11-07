@@ -26,6 +26,7 @@ struct IconGridView: View {
                     .frame(maxWidth: .infinity)
                     .background(RoundedRectangle(cornerRadius: 8).fill(selected ? Color.primary.opacity(0.08) : Color.clear))
                     .contentShape(Rectangle())
+                    .draggable(item.url)
                     .onTapGesture(count: 2) { pane.open([item.url]) }
                     .onTapGesture {
                         if NSEvent.modifierFlags.contains(.command) {

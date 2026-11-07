@@ -96,8 +96,11 @@ struct SidebarView: View {
                         .font(.system(size: 16 * s, weight: .light))
                     Text("Drag files here to collect them")
                         .font(.system(size: 13 * s))
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 .foregroundStyle(Color.primary.opacity(0.5))
+                .padding(.horizontal, 16)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12 * s)
             } else {

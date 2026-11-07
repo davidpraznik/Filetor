@@ -27,6 +27,8 @@ struct FileTableView: NSViewRepresentable {
         table.delegate = c
         table.target = c
         table.doubleAction = #selector(Coordinator.doubleClicked)
+        table.setDraggingSourceOperationMask([.copy, .move], forLocal: true)
+        table.setDraggingSourceOperationMask(.copy, forLocal: false)
 
         func add(_ id: String, _ title: String, _ width: CGFloat, min: CGFloat, right: Bool = false) {
             let col = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
@@ -102,6 +104,12 @@ struct FileTableView: NSViewRepresentable {
         }
 
         func numberOfRows(in tableView: NSTableView) -> Int { items.count }
+
+        /// Lets files be dragged out of the list (Drop Stack, Finder, other apps).
+        func tableView(_ tableView: NSTableView, pasteboardWriterForRow row: Int) -> NSPasteboardWriting? {
+            guard row < items.count else { return nil }
+            return items[row].url as NSURL
+        }
 
         func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
             guard let col = tableColumn, row < items.count else { return nil }

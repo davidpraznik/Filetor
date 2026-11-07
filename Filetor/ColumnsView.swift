@@ -82,6 +82,7 @@ private struct ColumnList: View {
                     .frame(height: 24 * scale)
                     .background(on ? Color.accentColor : Color.clear)
                     .contentShape(Rectangle())
+                    .draggable(item.url)
                     .onTapGesture(count: 2) { open(item) }
                     .onTapGesture { onSelect(item) }
                 }
