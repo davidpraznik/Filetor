@@ -45,7 +45,7 @@ enum Shortcuts {
         ]),
         ShortcutGroup(title: "View", entries: [
             ("Show or Hide Info Panel", "⌥ ⌘ I"),
-            ("Command Palette", "⌘ K"),
+            ("Actions", "⌘ K"),
             ("Keyboard Shortcuts", "⌥ ⌘ K"),
             ("Customize Toolbar", "—"),
             ("Restore Toolbar Defaults", "—"),

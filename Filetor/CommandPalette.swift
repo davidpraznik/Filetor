@@ -88,7 +88,7 @@ struct CommandPalette: View {
             VStack(spacing: 0) {
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                    TextField("Type a command…", text: $query)
+                    TextField("Search actions…", text: $query)
                         .textFieldStyle(.plain)
                         .font(.system(size: 16 * s))
                         .focused($focused)
@@ -170,5 +170,67 @@ struct CommandPalette: View {
         .background(RoundedRectangle(cornerRadius: 8).fill(selected && enabled ? Color.filetor.opacity(0.14) : Color.clear))
         .padding(.horizontal, 8)
         .contentShape(Rectangle())
+    }
+}
+
+/// One-time hint shown after the first launch: "Press ⌘K to browse actions".
+struct ActionsHint: View {
+    let app: AppModel
+    @AppStorage("actionsHintShown") private var shown = false
+    @AppStorage("textSize") private var textSize = 1
+    @State private var visible = false
+
+    private var s: CGFloat { UIScale.value(textSize) }
+
+    var body: some View {
+        ZStack {
+            // Keeps the view alive so the .task below runs even while the hint is hidden.
+            Color.clear.frame(width: 1, height: 1).allowsHitTesting(false)
+            if visible {
+                HStack(spacing: 10) {
+                    Text("Press")
+                    HStack(spacing: 4) {
+                        key("⌘")
+                        key("K")
+                    }
+                    Text("to browse actions")
+                    Button { withAnimation { visible = false } } label: {
+                        Text("✕")
+                            .font(.system(size: 11 * s))
+                            .frame(width: 24 * s, height: 24 * s)
+                            .background(Circle().fill(Color.white.opacity(0.14)))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.leading, 4)
+                }
+                .font(.system(size: 14 * s))
+                .foregroundStyle(.white)
+                .padding(.leading, 18)
+                .padding(.trailing, 10)
+                .frame(height: 44 * s)
+                .background(Capsule().fill(Color(white: 0.11)))
+                .shadow(color: .black.opacity(0.28), radius: 15, y: 10)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
+        }
+        .task {
+            guard !shown else { return }
+            try? await Task.sleep(for: .seconds(1))
+            shown = true
+            withAnimation { visible = true }
+            try? await Task.sleep(for: .seconds(12))
+            withAnimation { visible = false }
+        }
+        .onChange(of: app.showPalette) { _, on in
+            if on { withAnimation { visible = false } }
+        }
+    }
+
+    private func key(_ k: String) -> some View {
+        Text(k)
+            .font(.system(size: 12.5 * s))
+            .padding(.horizontal, 6)
+            .frame(minWidth: 24 * s, minHeight: 24 * s)
+            .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.16)))
     }
 }

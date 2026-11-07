@@ -39,7 +39,7 @@ import SwiftUI
                     .keyboardShortcut("i", modifiers: [.command, .option])
                 Button(app.showShortcuts ? "Hide Keyboard Shortcuts" : "Show Keyboard Shortcuts") { app.showShortcuts.toggle() }
                     .keyboardShortcut("k", modifiers: [.command, .option])
-                Button("Command Palette…") { app.showPalette.toggle() }
+                Button("Actions…") { app.showPalette.toggle() }
                     .keyboardShortcut("k", modifiers: .command)
                 Button("Search") { app.focusSearch += 1 }
                     .keyboardShortcut("f", modifiers: .command)

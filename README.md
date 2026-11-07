@@ -13,7 +13,7 @@ I made it for my own work, where I move and compare files between folders, disks
 **Browsing**
 - Two panes side by side, with tabs in each pane. Swap the panes or switch to a single pane.
 - List, icon and column views, a filter field and an info panel with details and a preview.
-- Sidebar with favorites, mounted disks (with eject) and network servers.
+- Sidebar with favorites, mounted disks (with eject), cloud storage (iCloud Drive, Google Drive, Dropbox, OneDrive) and network servers.
 - Quick Look on the space bar.
 
 **Moving files**
@@ -26,11 +26,17 @@ I made it for my own work, where I move and compare files between folders, disks
 - Find Duplicates in a folder, by size and then by checksum. Review the results and move the extra copies to the Trash.
 - Compare Folders: shows what is missing or different between the two panes, by name, size and date.
 - Touch: sets the modification date of the selected files to now.
-- Folder Size for any folder.
+- Folder sizes: an option shows the size of every folder in the list, like Finder does (Settings > Rows).
 - Compress and Decompress, Copy Path, Reveal in Finder, Open in Terminal.
 - Rotate Left, Rotate Right and Convert Image (PNG, JPEG, HEIC, TIFF) for image files.
-- Open With, Share and the macOS Services menu, from the Commands menu and the context menu.
+- Get Info opens the Finder info window for the selected items (⌘I).
+- Open With, Share (AirDrop, Mail, Messages) and the macOS Services menu, from the Commands menu and the context menu.
 - Show or hide hidden files with one click.
+
+**Actions and shortcuts**
+- ⌘K opens Actions: type a few letters and run any action.
+- ⌥⌘K shows all keyboard shortcuts in tabs at the bottom of the window.
+- ⌘F moves focus to the search field in the toolbar.
 
 **Customizable toolbar**
 - Choose which tools are in the toolbar: click an item to add or remove it, or drag it in or out.
@@ -47,7 +53,7 @@ I made it for my own work, where I move and compare files between folders, disks
 - Appearance: Light, Dark or Auto.
 - Accent colour: seven colours, applied across the app.
 - Text size: from S to Turbo.
-- Rows: compact rows, alternating row colours, keep folders on top.
+- Rows: compact rows, alternating row colours, keep folders on top, calculate all folder sizes.
 - Window: show item count and free space, open with two panes, show sidebar, show info panel.
 - Launch at login and automatic update check.
 

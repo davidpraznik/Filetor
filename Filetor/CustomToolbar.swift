@@ -282,7 +282,7 @@ struct FilterField: View {
         let s = UIScale.value(textSize)
         HStack(spacing: 4) {
             Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-            TextField("Filter", text: $text).textFieldStyle(.plain)
+            TextField("Filter selected pane", text: $text).textFieldStyle(.plain)
                 .focused($focused)
                 .onChange(of: focusTrigger) { _, _ in focused = true }
             if !text.isEmpty {
@@ -291,7 +291,7 @@ struct FilterField: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .font(.system(size: 14 * s))
+        .font(.system(size: 12.5 * s))
         .padding(.horizontal, 8)
         .padding(.vertical, 4 * s)
         .frame(width: 174 * s)

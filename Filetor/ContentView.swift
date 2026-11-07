@@ -60,6 +60,9 @@ struct ContentView: View {
             }
         }
         .animation(.easeInOut(duration: 0.18), value: app.showShortcuts)
+        .overlay(alignment: .bottom) {
+            ActionsHint(app: app).padding(.bottom, 52)
+        }
         .overlay {
             if app.showPalette { CommandPalette(app: app) }
         }
