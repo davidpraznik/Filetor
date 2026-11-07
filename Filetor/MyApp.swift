@@ -38,7 +38,7 @@ import SwiftUI
                 Button("Customize Toolbar…") { app.showCustomize = true }
                 Button("Restore Toolbar Defaults") { app.toolbarModel.restoreDefaults() }
             }
-            CommandMenu("Files") {
+            CommandMenu("Commands") {
                 Button("New Folder") { app.newFolder() }
                     .keyboardShortcut("n", modifiers: [.command, .shift])
                 Button("Rename…") { app.beginRename(app.active.selection) }
