@@ -77,7 +77,7 @@ You only need to do this once.
 
 ## Safety
 
-Filetor works on real files: it copies, moves, renames and trashes them. It is early software (version 0.1.0). Try it on a test folder first and keep backups of anything important.
+Filetor works on real files: it copies, moves, renames and trashes them. It is early software. Try it on a test folder first and keep backups of anything important.
 
 ## About
 
