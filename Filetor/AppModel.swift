@@ -45,6 +45,8 @@ final class AppModel {
     /// Files collected in the sidebar Drop Stack.
     var dropStack: [URL] = []
     var alert: String?
+    /// Result of Find Duplicates or Compare Folders.
+    var report: Report?
     var renameTarget: URL?
     var renameText = ""
 
