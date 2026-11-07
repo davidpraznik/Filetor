@@ -13,6 +13,20 @@ import SwiftUI
                 Button("New Tab") { app.newTab() }
                     .keyboardShortcut("t", modifiers: .command)
             }
+            CommandMenu("Files") {
+                Button("New Folder") { app.newFolder() }
+                    .keyboardShortcut("n", modifiers: [.command, .shift])
+                Button("Rename…") { app.beginRename(app.active.selection) }
+                    .keyboardShortcut(.f2, modifiers: [])
+                Divider()
+                Button("Copy to Other Pane") { app.transfer(app.active.selection, move: false) }
+                    .keyboardShortcut(.f5, modifiers: [])
+                Button("Move to Other Pane") { app.transfer(app.active.selection, move: true) }
+                    .keyboardShortcut(.f6, modifiers: [])
+                Divider()
+                Button("Move to Trash") { app.trash(app.active.selection) }
+                    .keyboardShortcut(.delete, modifiers: .command)
+            }
             CommandGroup(replacing: .saveItem) {
                 Button("Close Tab") { app.closeTab() }
                     .keyboardShortcut("w", modifiers: .command)

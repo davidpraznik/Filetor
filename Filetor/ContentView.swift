@@ -5,12 +5,21 @@ struct ContentView: View {
 
     var body: some View {
         @Bindable var pane = app.active
+        @Bindable var model = app
 
         NavigationSplitView {
             SidebarView(app: app)
                 .navigationSplitViewColumnWidth(min: 160, ideal: 200, max: 320)
         } detail: {
             DualPaneView(app: app)
+                .alert("Filetor", isPresented: Binding(
+                    get: { app.alert != nil },
+                    set: { if !$0 { app.alert = nil } }
+                )) {
+                    Button("OK") {}
+                } message: {
+                    Text(app.alert ?? "")
+                }
         }
         .navigationTitle(pane.currentURL.lastPathComponent.isEmpty ? "/" : pane.currentURL.lastPathComponent)
         .searchable(text: $pane.filter, prompt: "Filter")
@@ -52,6 +61,14 @@ struct ContentView: View {
             .opacity(0)
             .allowsHitTesting(false)
         }
+        .alert("Rename", isPresented: Binding(
+            get: { app.renameTarget != nil },
+            set: { if !$0 { app.renameTarget = nil } }
+        )) {
+            TextField("Name", text: $model.renameText)
+            Button("Rename") { app.commitRename() }
+            Button("Cancel", role: .cancel) {}
+        }
         .onChange(of: app.dual) { _, dual in
             if !dual { app.activeIndex = 0 }
         }
@@ -66,7 +83,7 @@ struct PaneContainer: View {
         let group = app.groups[index]
         VStack(spacing: 0) {
             TabStrip(group: group)
-            FileListView(pane: group.current)
+            FileListView(pane: group.current, app: app)
         }
         .frame(minWidth: 280)
         .overlay {

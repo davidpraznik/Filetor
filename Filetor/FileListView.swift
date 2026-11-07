@@ -2,6 +2,7 @@ import SwiftUI
 
 struct FileListView: View {
     @Bindable var pane: PaneModel
+    let app: AppModel
 
     var body: some View {
         Table(pane.sortedItems, selection: $pane.selection, sortOrder: $pane.sortOrder) {
@@ -29,7 +30,18 @@ struct FileListView: View {
             }
             .width(min: 80, ideal: 120)
         }
-        .contextMenu(forSelectionType: URL.self) { _ in
+        .contextMenu(forSelectionType: URL.self) { urls in
+            if urls.isEmpty {
+                Button("New Folder") { app.newFolder() }
+            } else {
+                Button("Open") { pane.open(urls) }
+                Divider()
+                Button("Rename…") { app.beginRename(urls) }
+                Button("Copy to Other Pane") { app.transfer(urls, move: false) }
+                Button("Move to Other Pane") { app.transfer(urls, move: true) }
+                Divider()
+                Button("Move to Trash") { app.trash(urls) }
+            }
         } primaryAction: { urls in
             pane.open(urls)
         }
