@@ -184,7 +184,7 @@ struct CustomToolbar: View {
                     ForEach(Array(["list.bullet", "square.grid.2x2", "rectangle.split.3x1"].enumerated()), id: \.offset) { i, name in
                         Image(systemName: name)
                             .font(.system(size: 13 * s))
-                            .foregroundStyle(Color.primary.opacity(i == 2 ? 0.3 : 0.7))
+                            .foregroundStyle(pane.viewMode == i ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(Color.primary.opacity(0.6)))
                             .frame(width: 34 * s, height: 24 * s)
                             .background {
                                 if pane.viewMode == i {
@@ -193,7 +193,7 @@ struct CustomToolbar: View {
                                 }
                             }
                             .contentShape(Rectangle())
-                            .onTapGesture { if i < 2 { pane.viewMode = i } }
+                            .onTapGesture { pane.viewMode = i }
                     }
                 }
                 .padding(2)

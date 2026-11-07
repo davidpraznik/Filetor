@@ -34,6 +34,8 @@ struct FileListView: View {
     private var table: some View {
         if pane.viewMode == 1 {
             IconGridView(pane: pane, scale: scale)
+        } else if pane.viewMode == 2 {
+            ColumnsView(pane: pane, scale: scale)
         } else {
             listTable
         }
