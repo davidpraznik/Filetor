@@ -98,7 +98,7 @@ enum ToolCatalog {
     ]
 
     static let defaultKinds: [String] = [
-        "backfwd", "title", "flex", "airdrop", "terminal", "touch", "customize", "reload",
+        "sidebar", "backfwd", "title", "flex", "airdrop", "terminal", "touch", "customize", "reload",
         "newFolder", "copyPath", "connect", "swap", "view", "dual", "search",
     ]
 }

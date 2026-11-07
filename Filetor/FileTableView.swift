@@ -28,6 +28,7 @@ struct FileTableView: NSViewRepresentable {
         table.dataSource = c
         table.delegate = c
         table.target = c
+        table.action = #selector(Coordinator.clicked)
         table.doubleAction = #selector(Coordinator.doubleClicked)
         table.registerForDraggedTypes([.fileURL])
         table.setDraggingSourceOperationMask([.copy, .move], forLocal: true)
@@ -304,8 +305,31 @@ struct FileTableView: NSViewRepresentable {
         }
 
         @objc func doubleClicked() {
+            lastClickRow = -1
             guard let table, table.clickedRow >= 0, table.clickedRow < items.count else { return }
             parent.pane.open([items[table.clickedRow].url])
+        }
+
+        // A slow second click on the name of an already selected item starts renaming, as in Finder.
+        private var lastClickRow = -1
+        private var lastClickTime: TimeInterval = 0
+
+        @objc func clicked() {
+            guard let table else { return }
+            let row = table.clickedRow, col = table.clickedColumn
+            let mods = NSEvent.modifierFlags.intersection([.command, .shift, .option, .control])
+            guard row >= 0, row < items.count, col >= 0, mods.isEmpty,
+                  table.tableColumns[col].identifier.rawValue == "name",
+                  table.selectedRowIndexes.count == 1 else { lastClickRow = -1; return }
+            let now = ProcessInfo.processInfo.systemUptime
+            let gap = now - lastClickTime
+            if row == lastClickRow, gap > NSEvent.doubleClickInterval, gap < 2.0 {
+                lastClickRow = -1
+                parent.app.beginRename([items[row].url])
+            } else {
+                lastClickRow = row
+                lastClickTime = now
+            }
         }
 
         // MARK: Context menu
