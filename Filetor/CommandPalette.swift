@@ -5,15 +5,15 @@ struct AppCommand: Identifiable {
     let id: String
     let title: String
     var keys = ""
-    var isEnabled: (AppModel) -> Bool = { _ in true }
-    let run: (AppModel) -> Void
+    var isEnabled: @MainActor (AppModel) -> Bool = { _ in true }
+    let run: @MainActor (AppModel) -> Void
 }
 
 /// Commands offered by the palette (⌘K). Add new commands here.
-enum CommandCatalog {
-    private static func hasSelection(_ app: AppModel) -> Bool { !app.active.selection.isEmpty }
-    private static func hasImage(_ app: AppModel) -> Bool { app.active.selection.contains { FileTools.isImage($0) } }
-    private static func hasArchive(_ app: AppModel) -> Bool { app.active.selection.contains { FileTools.isArchive($0) } }
+@MainActor enum CommandCatalog {
+    @MainActor private static func hasSelection(_ app: AppModel) -> Bool { !app.active.selection.isEmpty }
+    @MainActor private static func hasImage(_ app: AppModel) -> Bool { app.active.selection.contains { FileTools.isImage($0) } }
+    @MainActor private static func hasArchive(_ app: AppModel) -> Bool { app.active.selection.contains { FileTools.isArchive($0) } }
 
     static let all: [AppCommand] = [
         AppCommand(id: "newFolder", title: "New Folder", keys: "⇧ ⌘ N") { $0.newFolder() },
