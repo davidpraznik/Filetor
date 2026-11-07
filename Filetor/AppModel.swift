@@ -231,6 +231,14 @@ final class AppModel {
         }
     }
 
+    /// Files dropped onto a pane or folder (from the other pane, Drop Stack, Finder).
+    func dropTransfer(_ urls: [URL], into dir: URL, move: Bool) {
+        let items = urls
+            .filter { $0 != dir && !(move && $0.deletingLastPathComponent() == dir) }
+            .map { (src: $0, dstDir: dir) }
+        transfers.start(items: items, move: move)
+    }
+
     func transfer(_ urls: Set<URL>, move: Bool) {
         guard !urls.isEmpty else { return }
         guard dual else {

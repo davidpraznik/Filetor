@@ -27,6 +27,7 @@ struct FileTableView: NSViewRepresentable {
         table.delegate = c
         table.target = c
         table.doubleAction = #selector(Coordinator.doubleClicked)
+        table.registerForDraggedTypes([.fileURL])
         table.setDraggingSourceOperationMask([.copy, .move], forLocal: true)
         table.setDraggingSourceOperationMask(.copy, forLocal: false)
 
@@ -223,6 +224,28 @@ struct FileTableView: NSViewRepresentable {
             default: comparator = KeyPathComparator(\FileItem.name, comparator: .localizedStandard, order: order)
             }
             parent.pane.sortOrder = [comparator]
+        }
+
+        // MARK: Drop onto the list (copy; hold ⌘ to move). Dropping on a folder row targets that folder.
+
+        func tableView(_ tableView: NSTableView, validateDrop info: NSDraggingInfo, proposedRow row: Int,
+                       proposedDropOperation op: NSTableView.DropOperation) -> NSDragOperation {
+            if op == .on, row >= 0, row < items.count, items[row].isDirectory {
+                return NSEvent.modifierFlags.contains(.command) ? .move : .copy
+            }
+            tableView.setDropRow(-1, dropOperation: .on)
+            return NSEvent.modifierFlags.contains(.command) ? .move : .copy
+        }
+
+        func tableView(_ tableView: NSTableView, acceptDrop info: NSDraggingInfo, row: Int,
+                       dropOperation op: NSTableView.DropOperation) -> Bool {
+            let objs = info.draggingPasteboard.readObjects(forClasses: [NSURL.self],
+                                                           options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+            guard !objs.isEmpty else { return false }
+            let dest = (op == .on && row >= 0 && row < items.count && items[row].isDirectory)
+                ? items[row].url : parent.pane.currentURL
+            parent.app.dropTransfer(objs, into: dest, move: NSEvent.modifierFlags.contains(.command))
+            return true
         }
 
         @objc func doubleClicked() {
