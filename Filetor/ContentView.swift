@@ -18,7 +18,21 @@ struct ContentView: View {
         } detail: {
             VStack(spacing: 0) {
                 CustomToolbar(app: app)
-                    .padding(.leading, app.sidebarVisibility == .detailOnly ? 76 : 0)
+                    .padding(.leading, app.sidebarVisibility == .detailOnly ? 76 + (app.toolbarModel.contains("sidebar") ? 0 : 36) : 0)
+                    .overlay(alignment: .leading) {
+                        if app.sidebarVisibility == .detailOnly && !app.toolbarModel.contains("sidebar") {
+                            Button { app.sidebarVisibility = .all } label: {
+                                Image(systemName: "sidebar.left")
+                                    .font(.system(size: 16 * UIScale.value(textSize), weight: .light))
+                                    .foregroundStyle(Color.primary.opacity(0.6))
+                                    .frame(width: 32, height: 32)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .help("Show Sidebar")
+                            .padding(.leading, 76)
+                        }
+                    }
                 Divider()
                 DualPaneView(app: app)
                     .alert("Filetor", isPresented: Binding(

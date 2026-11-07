@@ -70,7 +70,7 @@ struct CustomToolbar: View {
     var body: some View {
         GeometryReader { geo in
             let transfersWidth: CGFloat = app.transfers.hasActive ? 70 * s : 0
-            let base = geo.size.width - 24 - transfersWidth
+            let base = geo.size.width - 28 - transfersWidth
             let first = split(available: base)
             let parts = first.hidden.isEmpty ? first : split(available: base - 40 * s)
             let hiddenButtons = parts.hidden.filter { $0.kind != "flex" && $0.kind != "space" && $0.kind != "title" && $0.kind != "search" }
@@ -105,7 +105,7 @@ struct CustomToolbar: View {
                     TransferButton(app: app, showLabel: model.showLabels)
                 }
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 14)
             .frame(width: geo.size.width, height: geo.size.height, alignment: .center)
         }
         .frame(height: 64 * s)
@@ -168,7 +168,7 @@ struct CustomToolbar: View {
                     Text("Back/Forward").font(.system(size: 10.5 * s)).foregroundStyle(.secondary)
                 }
             }
-            .frame(width: 100 * s)
+            .frame(width: 100 * s, alignment: .leading)
         case "title":
             let name = app.active.currentURL.lastPathComponent
             Text(name.isEmpty ? "/" : name)
