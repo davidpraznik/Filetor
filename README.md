@@ -40,7 +40,7 @@ I made it for my own work, where I move and compare files between folders, disks
 ## Settings
 
 <p align="center">
-  <img src="docs/filetor-settings-v2.png" alt="Filetor Settings in light and dark appearance" width="100%">
+  <img src="docs/filetor-settings-v3.png" alt="Filetor Settings in light and dark appearance" width="100%">
 </p>
 
 - Appearance: Light, Dark or Auto.
