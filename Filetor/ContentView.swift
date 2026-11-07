@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ContentView: View {
-    @State private var app = AppModel()
+    let app: AppModel
 
     var body: some View {
         @Bindable var pane = app.active
@@ -63,16 +63,57 @@ struct PaneContainer: View {
     let index: Int
 
     var body: some View {
-        FileListView(pane: app.panes[index])
-            .frame(minWidth: 280)
-            .overlay {
-                if app.dual && app.activeIndex == index {
-                    Rectangle()
-                        .strokeBorder(Color.accentColor.opacity(0.7), lineWidth: 1)
-                        .allowsHitTesting(false)
-                }
+        let group = app.groups[index]
+        VStack(spacing: 0) {
+            TabStrip(group: group)
+            FileListView(pane: group.current)
+        }
+        .frame(minWidth: 280)
+        .overlay {
+            if app.dual && app.activeIndex == index {
+                Rectangle()
+                    .strokeBorder(Color.accentColor.opacity(0.7), lineWidth: 1)
+                    .allowsHitTesting(false)
             }
-            .simultaneousGesture(TapGesture().onEnded { app.activeIndex = index })
+        }
+        .simultaneousGesture(TapGesture().onEnded { app.activeIndex = index })
+    }
+}
+
+struct TabStrip: View {
+    let group: PaneGroup
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(Array(group.tabs.enumerated()), id: \.element.id) { i, tab in
+                let name = tab.currentURL.lastPathComponent.isEmpty ? "/" : tab.currentURL.lastPathComponent
+                HStack(spacing: 6) {
+                    Text(name).lineLimit(1)
+                    if group.tabs.count > 1 {
+                        Button { group.close(at: i) } label: {
+                            Image(systemName: "xmark").font(.caption2)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Close Tab")
+                    }
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .frame(maxWidth: 170)
+                .background(i == group.selected ? Color.primary.opacity(0.12) : Color.clear,
+                            in: RoundedRectangle(cornerRadius: 6))
+                .contentShape(Rectangle())
+                .onTapGesture { group.selected = i }
+            }
+            Button { group.newTab() } label: { Image(systemName: "plus") }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 6)
+                .help("New Tab")
+            Spacer()
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(.bar)
     }
 }
 

@@ -2,7 +2,8 @@ import SwiftUI
 import Observation
 
 @Observable
-final class PaneModel {
+final class PaneModel: Identifiable {
+    let id = UUID()
     var currentURL: URL = FileManager.default.homeDirectoryForCurrentUser
     var items: [FileItem] = []
     var selection = Set<URL>()
@@ -26,7 +27,10 @@ final class PaneModel {
         return sorted.filter { $0.isDirectory } + sorted.filter { !$0.isDirectory }
     }
 
-    init() { load() }
+    init(url: URL? = nil) {
+        if let url { currentURL = url }
+        load()
+    }
 
     func navigate(to url: URL) {
         let target = url.standardizedFileURL
