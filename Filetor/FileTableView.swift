@@ -223,7 +223,11 @@ struct FileTableView: NSViewRepresentable {
                     text.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
                 ])
             case "size":
-                text.stringValue = item.isDirectory ? "--" : ByteCountFormatter.string(fromByteCount: item.size, countStyle: .file)
+                if item.isDirectory && !item.sizeCalculated {
+                    text.stringValue = UserDefaults.standard.bool(forKey: "calculateFolderSizes") ? "…" : "--"
+                } else {
+                    text.stringValue = ByteCountFormatter.string(fromByteCount: item.size, countStyle: .file)
+                }
                 text.textColor = .secondaryLabelColor
                 text.alignment = .right
                 pin(text, in: cell)

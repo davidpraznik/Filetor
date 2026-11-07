@@ -71,8 +71,6 @@ enum ToolCatalog {
                 run: { $0.openTerminal() }),
         ToolDef(id: "reload", title: "Reload", symbol: "arrow.clockwise",
                 run: { $0.active.load() }),
-        ToolDef(id: "folderSize", title: "Folder Size", symbol: "chart.bar", needsSelection: true,
-                run: { $0.folderSize($0.active.selection) }),
         ToolDef(id: "airdrop", title: "AirDrop", symbol: "airplayaudio", needsSelection: true,
                 run: { $0.airDrop($0.active.selection) }),
         ToolDef(id: "info", title: "Info Panel", symbol: "info.circle",
@@ -93,7 +91,7 @@ enum ToolCatalog {
         "sidebar", "backfwd", "enclosing", "title", "view", "dual", "swap",
         "quickLook", "hidden", "newFolder", "newFile", "newTab",
         "open", "rename", "duplicate", "copy", "move", "trash", "compress",
-        "decompress", "touch", "copyPath", "terminal", "reload", "folderSize",
+        "decompress", "touch", "copyPath", "terminal", "reload",
         "airdrop", "connect", "info", "customize", "search", "space", "flex",
     ]
 
@@ -114,7 +112,7 @@ final class ToolbarModel {
     init() {
         if let data = UserDefaults.standard.data(forKey: Self.key),
            let decoded = try? JSONDecoder().decode([ToolbarEntry].self, from: data) {
-            entries = decoded
+            entries = decoded.filter { $0.kind != "folderSize" }
         } else {
             entries = ToolCatalog.defaultKinds.map { ToolbarEntry(kind: $0) }
         }

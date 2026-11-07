@@ -120,16 +120,6 @@ final class AppModel {
         NSSharingService(named: .sendViaAirDrop)?.perform(withItems: Array(urls))
     }
 
-    func folderSize(_ urls: Set<URL>) {
-        let list = urls.sorted { $0.lastPathComponent < $1.lastPathComponent }
-        Task {
-            let lines = await Task.detached { () -> [String] in
-                list.map { "\($0.lastPathComponent): " + ByteCountFormatter.string(fromByteCount: FileTools.size(of: $0), countStyle: .file) }
-            }.value
-            alert = lines.joined(separator: "\n")
-        }
-    }
-
     func compress(_ urls: Set<URL>) {
         let dir = active.currentURL
         let list = urls.sorted { $0.lastPathComponent < $1.lastPathComponent }
@@ -205,6 +195,9 @@ final class AppModel {
     }
 
     // MARK: File operations (first version, runs on the main thread)
+
+    /// Reloads every pane, for example after a setting that changes the listing.
+    func reloadPanes() { refresh() }
 
     private func refresh() {
         for g in groups { g.current.load() }

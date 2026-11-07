@@ -96,5 +96,28 @@ final class PaneModel: Identifiable {
             items = []
             errorMessage = error.localizedDescription
         }
+        startFolderSizes()
+    }
+
+    @ObservationIgnored private var sizeTask: Task<Void, Never>?
+
+    /// Calculates the total size of every folder in the background when "Calculate all folder sizes" is on.
+    private func startFolderSizes() {
+        sizeTask?.cancel()
+        guard UserDefaults.standard.bool(forKey: "calculateFolderSizes") else { return }
+        let folders = items.filter(\.isDirectory).map(\.url)
+        guard !folders.isEmpty else { return }
+        let dir = currentURL
+        sizeTask = Task { [weak self] in
+            for url in folders {
+                if Task.isCancelled { return }
+                let size = await Task.detached(priority: .utility) { FileTools.size(of: url) }.value
+                if Task.isCancelled { return }
+                guard let self, self.currentURL == dir,
+                      let i = self.items.firstIndex(where: { $0.url == url }) else { continue }
+                self.items[i].size = size
+                self.items[i].sizeCalculated = true
+            }
+        }
     }
 }

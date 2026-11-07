@@ -11,6 +11,7 @@ struct SettingsSheet: View {
     @AppStorage("compactRows") private var compactRows = false
     @AppStorage("striped") private var striped = true
     @AppStorage("foldersFirst") private var foldersFirst = true
+    @AppStorage("calculateFolderSizes") private var calcFolderSizes = false
     @AppStorage("statusBar") private var statusBar = true
     @AppStorage("startDual") private var startDual = true
     @AppStorage("showSidebar") private var showSidebar = true
@@ -66,6 +67,8 @@ struct SettingsSheet: View {
                         Toggle("Compact rows", isOn: $compactRows)
                         Toggle("Alternating row colours", isOn: $striped)
                         Toggle("Keep folders on top", isOn: $foldersFirst)
+                        Toggle("Calculate all folder sizes", isOn: $calcFolderSizes)
+                            .onChange(of: calcFolderSizes) { _, _ in app.reloadPanes() }
                     }
                 }
                 GridRow(alignment: .firstTextBaseline) {

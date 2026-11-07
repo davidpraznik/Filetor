@@ -4,7 +4,9 @@ struct FileItem: Identifiable, Hashable {
     let url: URL
     let name: String
     let isDirectory: Bool
-    let size: Int64
+    var size: Int64
+    /// True once the total size of a folder has been calculated.
+    var sizeCalculated = false
     let modified: Date
     let kind: String
     let created: Date
