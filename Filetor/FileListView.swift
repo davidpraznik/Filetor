@@ -8,10 +8,29 @@ struct FileListView: View {
     @AppStorage("compactRows") private var compactRows = false
     @AppStorage("striped") private var striped = true
     @AppStorage("statusBar") private var statusBar = true
+    var isActive = false
+    var onNewTab: () -> Void = {}
 
     private var scale: CGFloat { UIScale.value(textSize) }
 
     var body: some View {
+        VStack(spacing: 0) {
+            BreadcrumbBar(pane: pane, onNewTab: onNewTab)
+            Divider()
+            table
+            if statusBar {
+                Divider()
+                Text(statusText)
+                    .font(.system(size: 13 * scale))
+                    .foregroundStyle(Color.primary.opacity(0.55))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 7 * scale)
+                    .background(isActive ? Color.accentColor.opacity(0.16) : Color.primary.opacity(0.025))
+            }
+        }
+    }
+
+    private var table: some View {
         Table(pane.sortedItems, selection: $pane.selection, sortOrder: $pane.sortOrder) {
             TableColumn("Name", value: \.name) { item in
                 HStack(spacing: 6) {
@@ -54,33 +73,6 @@ struct FileListView: View {
             }
         } primaryAction: { urls in
             pane.open(urls)
-        }
-        .safeAreaInset(edge: .top, spacing: 0) {
-            HStack {
-                Text((pane.currentURL.path as NSString).abbreviatingWithTildeInPath)
-                    .font(.system(size: 12 * scale))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.head)
-                Spacer()
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 5)
-            .background(.bar)
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            if statusBar {
-                HStack {
-                    Spacer()
-                    Text(statusText)
-                        .font(.system(size: 12 * scale))
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 5)
-                .background(.bar)
-            }
         }
         .overlay {
             if let msg = pane.errorMessage {

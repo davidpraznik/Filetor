@@ -40,6 +40,7 @@ struct SidebarView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .scrollContentBackground(.hidden)
+        .background(Color.primary.opacity(0.04))
         .onChange(of: selection) { _, new in
             if let new { app.active.navigate(to: new) }
         }
@@ -49,25 +50,25 @@ struct SidebarView: View {
         VStack(alignment: .leading, spacing: 2 * s) {
             Text(title)
                 .font(.system(size: 11.5 * s, weight: .semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.primary.opacity(0.4))
                 .padding(.horizontal, 8)
                 .padding(.bottom, 2 * s)
             ForEach(places) { p in
                 let on = selection == p.url
                 HStack(spacing: 8 * s) {
                     Image(systemName: p.icon)
-                        .font(.system(size: 14 * s))
-                        .foregroundStyle(on ? Color.white : Color.accentColor)
-                        .frame(width: 22 * s)
+                        .font(.system(size: 12.5 * s))
+                        .foregroundStyle(Color.accentColor)
+                        .frame(width: 20 * s)
                     Text(p.name)
-                        .font(.system(size: 13.5 * s))
-                        .foregroundStyle(on ? Color.white : Color.primary)
+                        .font(.system(size: 13 * s))
+                        .foregroundStyle(Color.primary)
                         .lineLimit(1)
                     Spacer(minLength: 0)
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 5 * s)
-                .background(RoundedRectangle(cornerRadius: 7).fill(on ? Color.accentColor : Color.clear))
+                .background(RoundedRectangle(cornerRadius: 7).fill(on ? Color.primary.opacity(0.09) : Color.clear))
                 .contentShape(Rectangle())
                 .onTapGesture { selection = p.url }
             }

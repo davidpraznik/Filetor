@@ -92,7 +92,8 @@ struct CustomToolbar: View {
                         }
                     } label: {
                         Image(systemName: "chevron.right.2")
-                            .font(.system(size: 16 * s))
+                            .font(.system(size: 16 * s, weight: .light))
+                            .foregroundStyle(Color.primary.opacity(0.6))
                             .frame(width: 32 * s, height: 30 * s)
                     }
                     .menuStyle(.borderlessButton)
@@ -146,14 +147,16 @@ struct CustomToolbar: View {
                 HStack(spacing: 0) {
                     Button { app.active.goBack() } label: {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 15 * s, weight: .medium))
+                            .font(.system(size: 15 * s, weight: .regular))
+                            .foregroundStyle(Color.primary.opacity(0.6))
                             .frame(width: 34 * s, height: 28 * s)
                     }
                     .disabled(!app.active.canGoBack)
                     .help("Back")
                     Button { app.active.goForward() } label: {
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 15 * s, weight: .medium))
+                            .font(.system(size: 15 * s, weight: .regular))
+                            .foregroundStyle(Color.primary.opacity(0.6))
                             .frame(width: 34 * s, height: 28 * s)
                     }
                     .disabled(!app.active.canGoForward)
@@ -162,7 +165,7 @@ struct CustomToolbar: View {
                 .buttonStyle(.plain)
                 .background(Capsule().fill(Color.primary.opacity(0.07)))
                 if model.showLabels {
-                    Text("Back/Forward").font(.system(size: 12 * s)).foregroundStyle(.secondary)
+                    Text("Back/Forward").font(.system(size: 10.5 * s)).foregroundStyle(.secondary)
                 }
             }
             .frame(width: 100 * s)
@@ -178,7 +181,7 @@ struct CustomToolbar: View {
             VStack(spacing: 3) {
                 FilterField(text: $pane.filter)
                 if model.showLabels {
-                    Text("Search").font(.system(size: 12 * s)).foregroundStyle(.secondary)
+                    Text("Search").font(.system(size: 10.5 * s)).foregroundStyle(.secondary)
                 }
             }
             .frame(width: 180 * s)
@@ -187,14 +190,15 @@ struct CustomToolbar: View {
                 Button { def.run(app) } label: {
                     VStack(spacing: 3) {
                         Image(systemName: def.symbol)
-                            .font(.system(size: 19 * s))
+                            .font(.system(size: 16 * s, weight: .light))
+                            .foregroundStyle(Color.primary.opacity(0.6))
                             .frame(width: 42 * s, height: 30 * s)
                             .background(
                                 RoundedRectangle(cornerRadius: 8)
                                     .fill((def.isOn?(app) ?? false) ? Color.primary.opacity(0.12) : Color.clear)
                             )
                         if model.showLabels {
-                            Text(def.title).font(.system(size: 12 * s)).lineLimit(1)
+                            Text(def.title).font(.system(size: 10.5 * s)).foregroundStyle(Color.primary.opacity(0.6)).lineLimit(1)
                         }
                     }
                     .frame(width: buttonWidth - 4)
@@ -218,10 +222,11 @@ struct TransferButton: View {
         Button { show.toggle() } label: {
             VStack(spacing: 3) {
                 Image(systemName: "arrow.left.arrow.right.circle")
-                    .font(.system(size: 19 * s))
+                    .font(.system(size: 16 * s, weight: .light))
+                    .foregroundStyle(Color.primary.opacity(0.6))
                     .frame(width: 42 * s, height: 30 * s)
                 if showLabel {
-                    Text("\(Int(app.transfers.overall * 100))%").font(.system(size: 12 * s))
+                    Text("\(Int(app.transfers.overall * 100))%").font(.system(size: 10.5 * s)).foregroundStyle(Color.primary.opacity(0.6))
                 }
             }
             .frame(width: 58 * s)
@@ -275,7 +280,7 @@ struct CustomizeSheet: View {
             Text("Click an item to add or remove it, or drag it into the toolbar below. Drag items in the toolbar to reorder them, or out of it to remove them.")
                 .foregroundStyle(.secondary)
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 108 * s), spacing: 8)], spacing: 12) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 104 * s), spacing: 0)], spacing: 14 * s) {
                 ForEach(ToolCatalog.palette, id: \.self) { kind in
                     paletteCell(kind, s)
                 }
@@ -286,15 +291,15 @@ struct CustomizeSheet: View {
             }
 
             Text("Toolbar").foregroundStyle(.secondary)
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 92 * s), spacing: 8)], alignment: .leading, spacing: 10) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 104 * s), spacing: 0)], alignment: .leading, spacing: 14 * s) {
                 ForEach(model.entries) { entry in
                     stripCell(entry, s)
                 }
             }
-            .padding(12)
+            .padding(14)
             .frame(maxWidth: .infinity, minHeight: 100 * s, alignment: .topLeading)
-            .background(RoundedRectangle(cornerRadius: 10).fill(Color.primary.opacity(0.05)))
-            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.primary.opacity(0.15)))
+            .background(RoundedRectangle(cornerRadius: 12).fill(Color.primary.opacity(0.025)))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary.opacity(0.15)))
             .dropDestination(for: String.self) { items, _ in
                 if let p = items.first { model.drop(p, before: nil) }
                 return true
@@ -323,47 +328,71 @@ struct CustomizeSheet: View {
         .frame(width: min(780 * s, 1180))
     }
 
-    private func icon(_ kind: String, size: CGFloat) -> some View {
-        Group {
-            if kind == "title" {
-                Text("Folder").font(.system(size: size - 2)).foregroundStyle(.secondary)
-            } else if kind == "search" {
-                Image(systemName: "magnifyingglass").font(.system(size: size - 2))
-            } else {
-                Image(systemName: ToolCatalog.symbol(kind)).font(.system(size: size - 2))
+    private func bubble(_ kind: String, _ s: CGFloat) -> some View {
+        let line = Color.primary.opacity(0.18)
+        let h = 38 * s
+        return ZStack {
+            switch kind {
+            case "backfwd":
+                Capsule().fill(Color(nsColor: .controlBackgroundColor)).overlay(Capsule().strokeBorder(line))
+                    .frame(width: 58 * s, height: h * 0.8)
+                HStack(spacing: 8 * s) {
+                    Image(systemName: "chevron.left"); Image(systemName: "chevron.right")
+                }
+                .font(.system(size: 12 * s, weight: .medium))
+            case "title":
+                Text("Folder").font(.system(size: 17 * s)).frame(height: h)
+            case "flex":
+                RoundedRectangle(cornerRadius: 7).fill(Color(nsColor: .controlBackgroundColor))
+                    .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(line))
+                    .frame(width: 50 * s, height: h * 0.75)
+                Rectangle().fill(Color.primary.opacity(0.45)).frame(width: 30 * s, height: 1)
+            case "space":
+                RoundedRectangle(cornerRadius: 7).fill(Color(nsColor: .controlBackgroundColor))
+                    .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(line))
+                    .frame(width: 30 * s, height: 30 * s)
+            case "search":
+                Capsule().fill(Color.primary.opacity(0.08)).frame(width: 56 * s, height: h * 0.7)
+                Image(systemName: "magnifyingglass").font(.system(size: 12 * s))
+                    .foregroundStyle(Color.primary.opacity(0.6))
+                    .frame(width: 56 * s, alignment: .leading).padding(.leading, 20 * s)
+            default:
+                Circle().fill(Color(nsColor: .controlBackgroundColor))
+                    .overlay(Circle().strokeBorder(line))
+                    .frame(width: h, height: h)
+                Image(systemName: ToolCatalog.symbol(kind))
+                    .font(.system(size: 14 * s, weight: .regular))
             }
         }
+        .frame(height: h)
+    }
+
+    private func cell(_ kind: String, _ s: CGFloat) -> some View {
+        VStack(spacing: 6 * s) {
+            bubble(kind, s)
+            Text(ToolCatalog.title(kind))
+                .font(.system(size: 13 * s))
+                .foregroundStyle(Color.primary.opacity(0.6))
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity)
+        .contentShape(Rectangle())
     }
 
     private func paletteCell(_ kind: String, _ s: CGFloat) -> some View {
         let present = model.contains(kind) && kind != "space" && kind != "flex"
-        return VStack(spacing: 6) {
-            ZStack {
-                Circle().fill(Color.primary.opacity(0.07)).frame(width: 46 * s, height: 46 * s)
-                icon(kind, size: 20 * s)
-            }
-            Text(ToolCatalog.title(kind)).lineLimit(1)
-        }
-        .opacity(present ? 0.35 : 1)
-        .contentShape(Rectangle())
-        .onTapGesture { model.toggle(kind) }
-        .draggable("new:" + kind)
+        return cell(kind, s)
+            .opacity(present ? 0.35 : 1)
+            .onTapGesture { model.toggle(kind) }
+            .draggable("new:" + kind)
     }
 
     private func stripCell(_ entry: ToolbarEntry, _ s: CGFloat) -> some View {
-        VStack(spacing: 4) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.07)).frame(width: 40 * s, height: 32 * s)
-                icon(entry.kind, size: 16 * s)
+        cell(entry.kind, s)
+            .draggable("move:" + entry.id.uuidString)
+            .dropDestination(for: String.self) { items, _ in
+                if let p = items.first { model.drop(p, before: entry.id) }
+                return true
             }
-            Text(ToolCatalog.title(entry.kind)).font(.system(size: 11.5 * s)).lineLimit(1)
-        }
-        .frame(width: 92 * s)
-        .contentShape(Rectangle())
-        .draggable("move:" + entry.id.uuidString)
-        .dropDestination(for: String.self) { items, _ in
-            if let p = items.first { model.drop(p, before: entry.id) }
-            return true
-        }
     }
 }

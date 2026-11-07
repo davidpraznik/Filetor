@@ -84,17 +84,10 @@ struct PaneContainer: View {
     var body: some View {
         let group = app.groups[index]
         VStack(spacing: 0) {
-            TabStrip(group: group)
-            FileListView(pane: group.current, app: app)
+            if group.tabs.count > 1 { TabStrip(group: group) }
+            FileListView(pane: group.current, app: app, isActive: app.dual && app.activeIndex == index, onNewTab: { group.newTab() })
         }
         .frame(minWidth: 280)
-        .overlay {
-            if app.dual && app.activeIndex == index {
-                Rectangle()
-                    .strokeBorder(Color.accentColor.opacity(0.7), lineWidth: 1)
-                    .allowsHitTesting(false)
-            }
-        }
         .simultaneousGesture(TapGesture().onEnded { app.activeIndex = index })
     }
 }
