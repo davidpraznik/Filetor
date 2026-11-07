@@ -56,7 +56,6 @@ struct ContentView: View {
         }
         .preferredColorScheme(appearance == 0 ? .light : (appearance == 1 ? .dark : nil))
         .tint(SettingsSheet.accents[min(max(accent, 0), SettingsSheet.accents.count - 1)])
-        .id(accent)
         .navigationTitle(pane.currentURL.lastPathComponent.isEmpty ? "/" : pane.currentURL.lastPathComponent)
         .toolbar(removing: .sidebarToggle)
         .background(NativeToolbarRemover(trigger: "\(app.sidebarVisibility)"))

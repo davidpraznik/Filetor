@@ -1,4 +1,5 @@
 import SwiftUI
+import Observation
 
 /// Flat controls in the Paths style: rounded rectangles instead of capsules.
 struct PathsButtonStyle: ButtonStyle {
@@ -88,10 +89,17 @@ struct PathsTextFieldStyle: TextFieldStyle {
 
 // MARK: - Accent colour and click-outside panels
 
+/// Observable copy of the accent choice, so every view that reads Color.filetor redraws when it changes.
+@Observable
+final class AccentStore {
+    static let shared = AccentStore()
+    var index = UserDefaults.standard.integer(forKey: "accent")
+}
+
 extension Color {
     /// The accent chosen in Settings.
     static var filetor: Color {
-        let i = UserDefaults.standard.integer(forKey: "accent")
+        let i = AccentStore.shared.index
         return SettingsSheet.accents[min(max(i, 0), SettingsSheet.accents.count - 1)]
     }
 }

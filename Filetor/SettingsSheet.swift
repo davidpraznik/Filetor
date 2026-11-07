@@ -53,7 +53,7 @@ struct SettingsSheet: View {
                                 .fill(color)
                                 .frame(width: 22 * s, height: 22 * s)
                                 .overlay(Circle().strokeBorder(Color.primary.opacity(accent == i ? 0.9 : 0), lineWidth: 2).padding(-4))
-                                .onTapGesture { accent = i }
+                                .onTapGesture { accent = i; AccentStore.shared.index = i }
                         }
                     }
                 }
