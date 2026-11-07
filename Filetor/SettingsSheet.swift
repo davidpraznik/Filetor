@@ -18,7 +18,7 @@ struct SettingsSheet: View {
     @AppStorage("autoUpdate") private var autoUpdate = true
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
 
-    static let accents: [Color] = [.blue, .purple, .pink, .red, .orange, .green, .gray]
+    static let accents: [Color] = [.blue, .purple, Color(red: 1.0, green: 0.16, blue: 0.67), .pink, .red, .orange, .green, .gray]
     static let sizeNames = ["S", "M", "L", "XL", "Turbo"]
 
     private var s: CGFloat { UIScale.value(textSize) }
