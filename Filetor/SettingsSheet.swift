@@ -21,11 +21,11 @@ struct SettingsSheet: View {
     static let sizeNames = ["S", "M", "L", "XL", "Turbo"]
 
     private var s: CGFloat { UIScale.value(textSize) }
-
     private var defaultDeviceName: String { Host.current().localizedName ?? "My Mac" }
 
     var body: some View {
         @Bindable var tb = app.toolbarModel
+        let w = 340 * s   // width of the control column; Done aligns to its right edge
 
         VStack(alignment: .leading, spacing: 20) {
             Text("Customize").font(.system(size: 22 * s))
@@ -33,12 +33,7 @@ struct SettingsSheet: View {
             Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 28, verticalSpacing: 16) {
                 GridRow {
                     Text("Appearance")
-                    Picker("", selection: $appearance) {
-                        Text("Light").tag(0)
-                        Text("Dark").tag(1)
-                        Text("Auto").tag(2)
-                    }
-                    .pickerStyle(.segmented).labelsHidden().frame(width: 240 * s)
+                    SegmentedChoice(options: ["Light", "Dark", "Auto"], selection: $appearance, scale: s)
                 }
                 GridRow {
                     Text("Accent colour")
@@ -54,10 +49,7 @@ struct SettingsSheet: View {
                 }
                 GridRow {
                     Text("Text size")
-                    Picker("", selection: $textSize) {
-                        ForEach(Array(Self.sizeNames.enumerated()), id: \.offset) { i, n in Text(n).tag(i) }
-                    }
-                    .pickerStyle(.segmented).labelsHidden().frame(width: 300 * s)
+                    SegmentedChoice(options: Self.sizeNames, selection: $textSize, scale: s, width: w)
                 }
                 GridRow(alignment: .firstTextBaseline) {
                     Text("Rows")
@@ -82,6 +74,7 @@ struct SettingsSheet: View {
                             dismiss()
                             DispatchQueue.main.async { app.showCustomize = true }
                         }
+                        .buttonStyle(PathsButtonStyle(scale: s))
                         Toggle("Show labels", isOn: $tb.showLabels)
                             .onChange(of: tb.showLabels) { _, _ in app.toolbarModel.save() }
                     }
@@ -93,27 +86,30 @@ struct SettingsSheet: View {
                 GridRow {
                     Text("Name on network")
                     TextField(defaultDeviceName, text: $deviceName)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 280 * s)
+                        .textFieldStyle(PathsTextFieldStyle(scale: s))
+                        .frame(width: w)
                 }
                 GridRow(alignment: .firstTextBaseline) {
                     Text("Save received files in")
                     VStack(alignment: .leading, spacing: 6) {
-                        Text(receiveFolder).font(.callout).foregroundStyle(.secondary)
+                        Text(receiveFolder).font(.system(size: 12 * s)).foregroundStyle(.secondary)
                         Button("Use Current Folder") { receiveFolder = app.active.currentURL.path }
+                            .buttonStyle(PathsButtonStyle(scale: s))
                     }
                 }
-            }
-
-            HStack {
-                Spacer()
-                Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
+                GridRow {
+                    Color.clear.gridCellUnsizedAxes([.horizontal, .vertical])
+                    Button("Done") { dismiss() }
+                        .buttonStyle(PathsButtonStyle(scale: s, prominent: true))
+                        .keyboardShortcut(.defaultAction)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
             }
         }
+        .toggleStyle(PathsCheckboxStyle(scale: s))
         .font(.system(size: 13 * s))
-        .controlSize(UIScale.controlSize(s))
         .padding(28)
-        .frame(width: min(600 * s, 940))
+        .fixedSize()
         .onChange(of: showHidden) { _, v in app.setHidden(v) }
     }
 }

@@ -27,24 +27,50 @@ struct SidebarView: View {
         [Place(name: "Macintosh HD", icon: "internaldrive", url: URL(filePath: "/"))]
     }
 
+    private var s: CGFloat { UIScale.value(textSize) }
+
     var body: some View {
-        List(selection: $selection) {
-            Section("Favorites") {
-                ForEach(favorites) { p in
-                    Label(p.name, systemImage: p.icon).tag(p.url)
-                }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14 * s) {
+                section("Favorites", favorites)
+                section("Devices", devices)
             }
-            Section("Devices") {
-                ForEach(devices) { p in
-                    Label(p.name, systemImage: p.icon).tag(p.url)
-                }
-            }
+            .padding(.horizontal, 10)
+            .padding(.top, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .listStyle(.sidebar)
-        .font(.system(size: 13 * UIScale.value(textSize)))
-        .environment(\.sidebarRowSize, UIScale.value(textSize) >= 1.4 ? .large : .medium)
+        .scrollContentBackground(.hidden)
         .onChange(of: selection) { _, new in
             if let new { app.active.navigate(to: new) }
+        }
+    }
+
+    private func section(_ title: String, _ places: [Place]) -> some View {
+        VStack(alignment: .leading, spacing: 2 * s) {
+            Text(title)
+                .font(.system(size: 11.5 * s, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 8)
+                .padding(.bottom, 2 * s)
+            ForEach(places) { p in
+                let on = selection == p.url
+                HStack(spacing: 8 * s) {
+                    Image(systemName: p.icon)
+                        .font(.system(size: 14 * s))
+                        .foregroundStyle(on ? Color.white : Color.accentColor)
+                        .frame(width: 22 * s)
+                    Text(p.name)
+                        .font(.system(size: 13.5 * s))
+                        .foregroundStyle(on ? Color.white : Color.primary)
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5 * s)
+                .background(RoundedRectangle(cornerRadius: 7).fill(on ? Color.accentColor : Color.clear))
+                .contentShape(Rectangle())
+                .onTapGesture { selection = p.url }
+            }
         }
     }
 }

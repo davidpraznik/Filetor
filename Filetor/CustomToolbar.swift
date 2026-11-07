@@ -302,22 +302,23 @@ struct CustomizeSheet: View {
 
             HStack(spacing: 12) {
                 Text("Show")
-                Picker("", selection: $tb.showLabels) {
-                    Text("Icon and Text").tag(true)
-                    Text("Icon Only").tag(false)
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .frame(width: 260 * s)
-                .onChange(of: tb.showLabels) { _, _ in model.save() }
+                SegmentedChoice(
+                    options: ["Icon and Text", "Icon Only"],
+                    selection: Binding(
+                        get: { tb.showLabels ? 0 : 1 },
+                        set: { tb.showLabels = ($0 == 0); model.save() }
+                    ),
+                    scale: s
+                )
                 Button("Restore Defaults") { model.restoreDefaults() }
+                    .buttonStyle(PathsButtonStyle(scale: s))
                 Spacer()
                 Button("Done") { dismiss() }
+                    .buttonStyle(PathsButtonStyle(scale: s, prominent: true))
                     .keyboardShortcut(.defaultAction)
             }
         }
         .font(.system(size: 13 * s))
-        .controlSize(UIScale.controlSize(s))
         .padding(24)
         .frame(width: min(780 * s, 1180))
     }
