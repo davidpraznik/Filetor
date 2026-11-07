@@ -24,7 +24,13 @@ struct SidebarView: View {
     }
 
     private var devices: [Place] {
-        [Place(name: "Macintosh HD", icon: "internaldrive", url: URL(filePath: "/"))]
+        let keys: [URLResourceKey] = [.volumeNameKey, .volumeIsInternalKey]
+        let vols = FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: keys, options: [.skipHiddenVolumes]) ?? []
+        return vols.map { url in
+            let v = try? url.resourceValues(forKeys: Set(keys))
+            let name = url.path == "/" ? FileManager.default.displayName(atPath: "/") : (v?.volumeName ?? url.lastPathComponent)
+            return Place(name: name, icon: (v?.volumeIsInternal ?? true) ? "internaldrive" : "externaldrive", url: url)
+        }
     }
 
     private var s: CGFloat { UIScale.value(textSize) }
@@ -32,8 +38,9 @@ struct SidebarView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14 * s) {
-                section("Favorites", favorites)
+                dropStack
                 section("Devices", devices)
+                section("Favorites", favorites)
             }
             .padding(.horizontal, 10)
             .padding(.top, 4)
@@ -73,5 +80,66 @@ struct SidebarView: View {
                 .onTapGesture { selection = p.url }
             }
         }
+    }
+
+    @State private var dropTargeted = false
+
+    private var dropStack: some View {
+        VStack(alignment: .leading, spacing: 6 * s) {
+            Text("Drop Stack")
+                .font(.system(size: 11.5 * s, weight: .semibold))
+                .foregroundStyle(Color.primary.opacity(0.4))
+                .padding(.horizontal, 8)
+            if app.dropStack.isEmpty {
+                VStack(spacing: 4 * s) {
+                    Image(systemName: "square.3.layers.3d")
+                        .font(.system(size: 16 * s, weight: .light))
+                    Text("Drag files here to collect them")
+                        .font(.system(size: 13 * s))
+                }
+                .foregroundStyle(Color.primary.opacity(0.5))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12 * s)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(app.dropStack, id: \.self) { url in
+                        HStack(spacing: 6 * s) {
+                            Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
+                                .resizable().frame(width: 16 * s, height: 16 * s)
+                            Text(url.lastPathComponent).font(.system(size: 13 * s)).lineLimit(1)
+                            Spacer(minLength: 0)
+                            Button { app.dropStack.removeAll { $0 == url } } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 9 * s, weight: .semibold))
+                                    .foregroundStyle(Color.primary.opacity(0.45))
+                            }
+                            .buttonStyle(.plain)
+                            .help("Remove from Drop Stack")
+                        }
+                        .padding(.horizontal, 8)
+                        .frame(height: 24 * s)
+                        .draggable(url)
+                    }
+                    Button("Clear") { app.dropStack.removeAll() }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 11.5 * s))
+                        .foregroundStyle(Color.primary.opacity(0.5))
+                        .padding(.top, 4 * s)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .padding(.horizontal, 8)
+                }
+                .padding(.vertical, 6 * s)
+            }
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                .foregroundStyle(dropTargeted ? Color.accentColor : Color.primary.opacity(0.3))
+                .padding(.top, 20 * s)
+        )
+        .dropDestination(for: URL.self) { urls, _ in
+            for u in urls where !app.dropStack.contains(u) { app.dropStack.append(u) }
+            return true
+        } isTargeted: { dropTargeted = $0 }
     }
 }
