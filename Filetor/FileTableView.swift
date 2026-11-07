@@ -401,6 +401,7 @@ struct FileTableView: NSViewRepresentable {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(paths, forType: .string)
             })
+            menu.addItem(item("Get Info") { [weak self] in self?.parent.app.getInfo(urls) })
             menu.addItem(item("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting(Array(urls)) })
             menu.addItem(item("Open in Terminal") { [weak self] in
                 guard let first = urls.sorted(by: { $0.path < $1.path }).first else { return }

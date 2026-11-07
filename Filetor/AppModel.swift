@@ -150,6 +150,17 @@ final class AppModel {
         }
     }
 
+    /// Opens Finder's Get Info window for the selection through the system "Show Info in Finder" service.
+    func getInfo(_ urls: Set<URL>) {
+        guard !urls.isEmpty else { return }
+        let pb = NSPasteboard(name: NSPasteboard.Name("com.davidpraznik.Filetor.getinfo"))
+        pb.clearContents()
+        pb.writeObjects(urls.sorted { $0.path < $1.path } as [NSURL])
+        if !NSPerformService("Finder/Show Info", pb) {
+            alert = "Could not open Get Info in Finder."
+        }
+    }
+
     func rotateImages(_ urls: Set<URL>, degrees: Int) {
         let list = urls.sorted { $0.lastPathComponent < $1.lastPathComponent }
         Task {

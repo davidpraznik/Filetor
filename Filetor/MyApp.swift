@@ -35,6 +35,8 @@ import SwiftUI
                     .keyboardShortcut(",", modifiers: .command)
             }
             CommandGroup(after: .toolbar) {
+                Button(app.showInfo ? "Hide Info Panel" : "Show Info Panel") { app.showInfo.toggle() }
+                    .keyboardShortcut("i", modifiers: [.command, .option])
                 Button("Customize Toolbar…") { app.showCustomize = true }
                 Button("Restore Toolbar Defaults") { app.toolbarModel.restoreDefaults() }
             }
@@ -69,6 +71,9 @@ import SwiftUI
                 Button("Move to Other Pane") { app.transfer(app.active.selection, move: true) }
                     .keyboardShortcut(.f6, modifiers: [])
                 Divider()
+                Button("Get Info") { app.getInfo(app.active.selection) }
+                    .keyboardShortcut("i", modifiers: .command)
+                    .disabled(app.active.selection.isEmpty)
                 Button("Share…") { app.share(app.active.selection) }
                     .disabled(app.active.selection.isEmpty)
                 Button("Compress") { app.compress(app.active.selection) }
