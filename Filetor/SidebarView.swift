@@ -118,11 +118,8 @@ struct SidebarView: View {
 
     private var shared: some View {
         VStack(alignment: .leading, spacing: 2 * s) {
-            Text("Shared")
-                .font(.system(size: 11.5 * s, weight: .semibold))
-                .foregroundStyle(Color.primary.opacity(0.4))
-                .padding(.horizontal, 8)
-                .padding(.bottom, 2 * s)
+            sectionHeader("Shared")
+            if !isCollapsed("Shared") {
             HStack(spacing: 8 * s) {
                 Image(systemName: "plus")
                     .font(.system(size: 12.5 * s))
@@ -157,6 +154,7 @@ struct SidebarView: View {
             .dropDestination(for: URL.self) { urls, _ in
                 app.airDrop(Set(urls))
                 return true
+            }
             }
         }
     }
