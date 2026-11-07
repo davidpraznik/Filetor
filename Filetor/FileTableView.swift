@@ -22,7 +22,7 @@ struct FileTableView: NSViewRepresentable {
         table.style = .plain
         table.allowsMultipleSelection = true
         table.allowsColumnReordering = false
-        table.columnAutoresizingStyle = .firstColumnOnlyAutoresizingStyle
+        table.columnAutoresizingStyle = .noColumnAutoresizing
         table.intercellSpacing = NSSize(width: 0, height: 0)
         table.gridStyleMask = []
         table.dataSource = c
@@ -66,8 +66,14 @@ struct FileTableView: NSViewRepresentable {
         let scroll = NSScrollView()
         scroll.documentView = table
         scroll.hasVerticalScroller = true
+        scroll.hasHorizontalScroller = true
+        scroll.autohidesScrollers = true
         scroll.drawsBackground = true
         c.table = table
+        // Columns can be widened freely (the list scrolls sideways); Name fills any leftover width.
+        scroll.contentView.postsFrameChangedNotifications = true
+        NotificationCenter.default.addObserver(c, selector: #selector(Coordinator.fillWidth), name: NSView.frameDidChangeNotification, object: scroll.contentView)
+        DispatchQueue.main.async { c.fillWidth() }
         return scroll
     }
 
@@ -107,6 +113,14 @@ struct FileTableView: NSViewRepresentable {
         var items: [FileItem] = []
         var lastSettings: [CGFloat] = []
         var syncing = false
+
+        @objc func fillWidth() {
+            guard let table, let clip = table.enclosingScrollView?.contentView,
+                  let name = table.tableColumns.first(where: { $0.identifier.rawValue == "name" }) else { return }
+            let others = table.tableColumns.filter { $0 !== name && !$0.isHidden }.reduce(CGFloat(0)) { $0 + $1.width }
+            let spacing = table.intercellSpacing.width * CGFloat(table.numberOfColumns)
+            name.width = max(name.minWidth, clip.bounds.width - others - spacing)
+        }
         var headerMenu: NSMenu?
 
         static let optionalColumns: [(id: String, title: String)] = [
@@ -342,6 +356,7 @@ struct FileTableView: NSViewRepresentable {
             if visible.contains(id) { visible.remove(id) } else { visible.insert(id) }
             UserDefaults.standard.set(Array(visible), forKey: "fileColumns")
             table.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier(id))?.isHidden = !visible.contains(id)
+            fillWidth()
         }
 
         private func item(_ title: String, _ action: @escaping () -> Void) -> NSMenuItem {
