@@ -76,6 +76,18 @@ import SwiftUI
                 Button("Decompress") { app.decompress(app.active.selection) }
                     .disabled(app.active.selection.isEmpty)
                 Divider()
+                Button("Rotate Left") { app.rotateImages(app.active.selection, degrees: 270) }
+                    .disabled(app.active.selection.isEmpty)
+                Button("Rotate Right") { app.rotateImages(app.active.selection, degrees: 90) }
+                    .disabled(app.active.selection.isEmpty)
+                Menu("Convert Image") {
+                    Button("PNG") { app.convertImages(app.active.selection, format: "png", ext: "png") }
+                    Button("JPEG") { app.convertImages(app.active.selection, format: "jpeg", ext: "jpg") }
+                    Button("HEIC") { app.convertImages(app.active.selection, format: "heic", ext: "heic") }
+                    Button("TIFF") { app.convertImages(app.active.selection, format: "tiff", ext: "tiff") }
+                }
+                .disabled(app.active.selection.isEmpty)
+                Divider()
                 Button("Find Duplicates…") { app.findDuplicates() }
                 Button("Compare Folders…") { app.compareFolders() }
             }

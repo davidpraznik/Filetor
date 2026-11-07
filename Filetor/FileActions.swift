@@ -1,4 +1,5 @@
 import Foundation
+import UniformTypeIdentifiers
 
 /// Helpers that run outside the main actor (archives, folder sizes).
 nonisolated enum FileTools {
@@ -60,6 +61,41 @@ nonisolated enum FileTools {
                 err = run("/usr/bin/tar", ["-xf", url.path, "-C", dest.path])
             }
             if let err { errors.append("\(url.lastPathComponent): \(err)") }
+        }
+        return errors.isEmpty ? nil : errors.joined(separator: "\n")
+    }
+
+    // MARK: Images (through the built-in sips tool)
+
+    static func isImage(_ url: URL) -> Bool {
+        guard let type = UTType(filenameExtension: url.pathExtension) else { return false }
+        return type.conforms(to: .image)
+    }
+
+    /// Rotates images in place (90 = right, 270 = left), like Finder.
+    static func rotate(_ urls: [URL], degrees: Int) -> String? {
+        let images = urls.filter(isImage)
+        if images.isEmpty { return "Select one or more image files." }
+        var errors: [String] = []
+        for url in images {
+            if let err = run("/usr/bin/sips", ["-r", String(degrees), url.path]) {
+                errors.append("\(url.lastPathComponent): \(err)")
+            }
+        }
+        return errors.isEmpty ? nil : errors.joined(separator: "\n")
+    }
+
+    /// Writes a converted copy next to each image and leaves the original untouched.
+    static func convert(_ urls: [URL], format: String, ext: String) -> String? {
+        let images = urls.filter(isImage)
+        if images.isEmpty { return "Select one or more image files." }
+        var errors: [String] = []
+        for url in images {
+            let dest = unique(url.deletingLastPathComponent()
+                .appending(path: url.deletingPathExtension().lastPathComponent + "." + ext))
+            if let err = run("/usr/bin/sips", ["-s", "format", format, url.path, "--out", dest.path]) {
+                errors.append("\(url.lastPathComponent): \(err)")
+            }
         }
         return errors.isEmpty ? nil : errors.joined(separator: "\n")
     }

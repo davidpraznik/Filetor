@@ -150,6 +150,24 @@ final class AppModel {
         }
     }
 
+    func rotateImages(_ urls: Set<URL>, degrees: Int) {
+        let list = urls.sorted { $0.lastPathComponent < $1.lastPathComponent }
+        Task {
+            let err = await Task.detached { FileTools.rotate(list, degrees: degrees) }.value
+            refresh()
+            if let err { alert = err }
+        }
+    }
+
+    func convertImages(_ urls: Set<URL>, format: String, ext: String) {
+        let list = urls.sorted { $0.lastPathComponent < $1.lastPathComponent }
+        Task {
+            let err = await Task.detached { FileTools.convert(list, format: format, ext: ext) }.value
+            refresh()
+            if let err { alert = err }
+        }
+    }
+
     func setHidden(_ value: Bool) {
         for g in groups {
             for t in g.tabs {

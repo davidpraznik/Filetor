@@ -381,6 +381,18 @@ struct FileTableView: NSViewRepresentable {
             menu.addItem(.separator())
             menu.addItem(item("Compress") { [weak self] in self?.parent.app.compress(urls) })
             menu.addItem(item("Decompress") { [weak self] in self?.parent.app.decompress(urls) })
+            if urls.contains(where: { FileTools.isImage($0) }) {
+                menu.addItem(.separator())
+                menu.addItem(item("Rotate Left") { [weak self] in self?.parent.app.rotateImages(urls, degrees: 270) })
+                menu.addItem(item("Rotate Right") { [weak self] in self?.parent.app.rotateImages(urls, degrees: 90) })
+                let conv = NSMenuItem(title: "Convert Image", action: nil, keyEquivalent: "")
+                let sub = NSMenu()
+                for (title, fmt, ext) in [("PNG", "png", "png"), ("JPEG", "jpeg", "jpg"), ("HEIC", "heic", "heic"), ("TIFF", "tiff", "tiff")] {
+                    sub.addItem(item(title) { [weak self] in self?.parent.app.convertImages(urls, format: fmt, ext: ext) })
+                }
+                conv.submenu = sub
+                menu.addItem(conv)
+            }
             menu.addItem(.separator())
             menu.addItem(item("Copy Path") {
                 let paths = urls.map(\.path).sorted().joined(separator: "\n")
