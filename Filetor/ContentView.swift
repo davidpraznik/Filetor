@@ -95,6 +95,9 @@ struct ContentView: View {
                 }
             }
         }
+        .sheet(isPresented: Binding(get: { model.batchRename != nil }, set: { if !$0 { model.batchRename = nil } })) {
+            if let urls = model.batchRename { BatchRenameSheet(app: app, urls: urls) }
+        }
         .sheet(isPresented: $model.showConnect) {
             ConnectSheet(app: app)
         }

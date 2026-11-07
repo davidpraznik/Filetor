@@ -33,6 +33,8 @@ final class AppModel {
     var showCustomize = false
     var showSettings = false
     var showConnect = false
+    /// Files being renamed together in the batch rename dialog.
+    var batchRename: [URL]?
     /// Info panel on the right (Get Info). Persisted.
     var showInfo = UserDefaults.standard.bool(forKey: "showInfoPanel") {
         didSet { UserDefaults.standard.set(showInfo, forKey: "showInfoPanel") }
@@ -213,9 +215,30 @@ final class AppModel {
     }
 
     func beginRename(_ urls: Set<URL>) {
+        if urls.count > 1 {
+            batchRename = urls.sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
+            return
+        }
         guard let url = urls.first else { return }
         renameText = url.lastPathComponent
         renameTarget = url
+    }
+
+    /// Renames in two steps through temporary names, so swaps and shifted numbering never collide.
+    func applyBatchRename(_ pairs: [(URL, String)]) {
+        let fm = FileManager.default
+        var temps: [(URL, URL)] = []
+        do {
+            for (url, name) in pairs where name != url.lastPathComponent {
+                let tmp = url.deletingLastPathComponent().appending(path: ".filetor-\(UUID().uuidString)")
+                try fm.moveItem(at: url, to: tmp)
+                temps.append((tmp, url.deletingLastPathComponent().appending(path: name)))
+            }
+            for (tmp, final) in temps { try fm.moveItem(at: tmp, to: final) }
+        } catch {
+            alert = "Rename failed: \(error.localizedDescription)"
+        }
+        refresh()
     }
 
     func commitRename() {
