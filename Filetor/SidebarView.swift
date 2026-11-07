@@ -37,6 +37,31 @@ struct SidebarView: View {
         }
     }
 
+    /// iCloud Drive and cloud providers (Google Drive, Dropbox, OneDrive) that exist on this Mac.
+    private var cloud: [Place] {
+        _ = tick
+        let fm = FileManager.default
+        let home = fm.homeDirectoryForCurrentUser
+        var out: [Place] = []
+        let icloud = home.appendingPathComponent("Library/Mobile Documents/com~apple~CloudDocs")
+        if fm.fileExists(atPath: icloud.path) { out.append(Place(name: "iCloud Drive", icon: "icloud", url: icloud)) }
+        let storage = home.appendingPathComponent("Library/CloudStorage")
+        let dirs = (try? fm.contentsOfDirectory(at: storage, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])) ?? []
+        for url in dirs.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
+            let n = url.lastPathComponent
+            let (provider, account): (String, String) = {
+                if n.hasPrefix("GoogleDrive-") { return ("Google Drive", String(n.dropFirst("GoogleDrive-".count))) }
+                if n.hasPrefix("OneDrive-") { return ("OneDrive", String(n.dropFirst("OneDrive-".count))) }
+                if n.hasPrefix("Dropbox") { return ("Dropbox", "") }
+                return (n, "")
+            }()
+            let same = dirs.filter { $0.lastPathComponent.hasPrefix(n.split(separator: "-").first.map(String.init) ?? n) }.count
+            let name = (same > 1 && !account.isEmpty) ? "\(provider) (\(account))" : provider
+            out.append(Place(name: name, icon: "cloud", url: url))
+        }
+        return out
+    }
+
     private var s: CGFloat { UIScale.value(textSize) }
 
     var body: some View {
@@ -44,6 +69,7 @@ struct SidebarView: View {
             VStack(alignment: .leading, spacing: 14 * s) {
                 dropStack
                 section("Devices", devices, ejectable: true)
+                if !cloud.isEmpty { section("Cloud", cloud) }
                 shared
                 section("Favorites", favorites, isFavorites: true)
                     .dropDestination(for: URL.self) { urls, _ in
