@@ -355,6 +355,24 @@ struct FileTableView: NSViewRepresentable {
             menu.addItem(item("Copy to Other Pane") { [weak self] in self?.parent.app.transfer(urls, move: false) })
             menu.addItem(item("Move to Other Pane") { [weak self] in self?.parent.app.transfer(urls, move: true) })
             menu.addItem(.separator())
+            menu.addItem(item("Compress") { [weak self] in self?.parent.app.compress(urls) })
+            menu.addItem(item("Decompress") { [weak self] in self?.parent.app.decompress(urls) })
+            menu.addItem(.separator())
+            menu.addItem(item("Copy Path") {
+                let paths = urls.map(\.path).sorted().joined(separator: "\n")
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(paths, forType: .string)
+            })
+            menu.addItem(item("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting(Array(urls)) })
+            menu.addItem(item("Open in Terminal") { [weak self] in
+                guard let first = urls.sorted(by: { $0.path < $1.path }).first else { return }
+                let isDir = self?.items.first { $0.url == first }?.isDirectory ?? false
+                let folder = isDir ? first : first.deletingLastPathComponent()
+                NSWorkspace.shared.open([folder],
+                                        withApplicationAt: URL(fileURLWithPath: "/System/Applications/Utilities/Terminal.app"),
+                                        configuration: NSWorkspace.OpenConfiguration())
+            })
+            menu.addItem(.separator())
             let folders = urls.filter { u in items.first { $0.url == u }?.isDirectory ?? false }
             if !folders.isEmpty {
                 menu.addItem(.separator())
@@ -363,7 +381,18 @@ struct FileTableView: NSViewRepresentable {
                 })
             }
             menu.addItem(.separator())
+            let services = NSMenuItem(title: "Services", action: nil, keyEquivalent: "")
+            let servicesMenu = NSMenu(title: "Services")
+            services.submenu = servicesMenu
+            NSApp.servicesMenu = servicesMenu
+            menu.addItem(services)
+            menu.addItem(.separator())
             menu.addItem(item("Move to Trash") { [weak self] in self?.parent.app.trash(urls) })
+        }
+
+        var selectedURLs: [URL] {
+            guard let table else { return [] }
+            return table.selectedRowIndexes.compactMap { items.indices.contains($0) ? items[$0].url : nil }
         }
 
         @objc private func toggleColumn(_ sender: NSMenuItem) {
@@ -400,6 +429,22 @@ final class QLTableView: NSTableView {
 
     @objc func copy(_ sender: Any?) { qlSource?.copySelection() }
     @objc func paste(_ sender: Any?) { qlSource?.pasteHere() }
+
+    // Lets the Services submenu of the context menu act on the selected files.
+    override func validRequestor(forSendType sendType: NSPasteboard.PasteboardType?, returnType: NSPasteboard.PasteboardType?) -> Any? {
+        if returnType == nil, selectedRow >= 0, let t = sendType,
+           [NSPasteboard.PasteboardType.fileURL, .URL, .string, NSPasteboard.PasteboardType("NSFilenamesPboardType")].contains(t) {
+            return self
+        }
+        return super.validRequestor(forSendType: sendType, returnType: returnType)
+    }
+
+    @objc func writeSelection(to pboard: NSPasteboard, types: [NSPasteboard.PasteboardType]) -> Bool {
+        let urls = qlSource?.selectedURLs ?? []
+        guard !urls.isEmpty else { return false }
+        pboard.clearContents()
+        return pboard.writeObjects(urls.map { $0 as NSURL })
+    }
 
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 36, event.modifierFlags.intersection([.command, .option, .control]).isEmpty {
