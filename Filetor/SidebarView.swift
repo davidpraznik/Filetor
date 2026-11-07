@@ -172,24 +172,10 @@ struct SidebarView: View {
                 .padding(.vertical, 12 * s)
             } else {
                 VStack(spacing: 0) {
-                    ForEach(app.dropStack, id: \.self) { url in
-                        HStack(spacing: 6 * s) {
-                            Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
-                                .resizable().frame(width: 16 * s, height: 16 * s)
-                            Text(url.lastPathComponent).font(.system(size: 13 * s)).lineLimit(1)
-                            Spacer(minLength: 0)
-                            Button { app.dropStack.removeAll { $0 == url } } label: {
-                                Image(systemName: "xmark")
-                                    .font(.system(size: 9 * s, weight: .semibold))
-                                    .foregroundStyle(Color.primary.opacity(0.45))
-                            }
-                            .buttonStyle(.plain)
-                            .help("Remove from Drop Stack")
-                        }
-                        .padding(.horizontal, 8)
-                        .frame(height: 24 * s)
-                        .draggable(url)
+                    DropStackList(urls: app.dropStack, scale: s) { removed in
+                        app.dropStack.removeAll { removed.contains($0) }
                     }
+                    .frame(height: DropStackList.rowHeight(s) * CGFloat(app.dropStack.count))
                     Button("Clear") { app.dropStack.removeAll() }
                         .buttonStyle(.plain)
                         .font(.system(size: 11.5 * s))
