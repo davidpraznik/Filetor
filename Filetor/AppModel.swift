@@ -34,6 +34,7 @@ final class AppModel {
     var showSettings = false
     var showConnect = false
     let favorites = FavoritesStore()
+    let network = NetworkBrowser()
     /// Files being renamed together in the batch rename dialog.
     var batchRename: [URL]?
     /// Info panel on the right (Get Info). Persisted.

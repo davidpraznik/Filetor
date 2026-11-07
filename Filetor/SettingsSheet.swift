@@ -15,10 +15,8 @@ struct SettingsSheet: View {
     @AppStorage("startDual") private var startDual = true
     @AppStorage("showSidebar") private var showSidebar = true
     @AppStorage("showHidden") private var showHidden = false
-    @AppStorage("deviceName") private var deviceName = ""
     @AppStorage("autoUpdate") private var autoUpdate = true
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
-    @AppStorage("receiveFolder") private var receiveFolder = NSHomeDirectory() + "/Downloads"
 
     static let accents: [Color] = [.blue, .purple, .pink, .red, .orange, .green, .gray]
     static let sizeNames = ["S", "M", "L", "XL", "Turbo"]
@@ -33,7 +31,6 @@ struct SettingsSheet: View {
         let copyright = info["NSHumanReadableCopyright"] as? String ?? ""
         return "Filetor \(version) (\(build))" + (copyright.isEmpty ? "" : " · \(copyright)")
     }
-    private var defaultDeviceName: String { Host.current().localizedName ?? "My Mac" }
 
     var body: some View {
         @Bindable var tb = app.toolbarModel
@@ -96,20 +93,6 @@ struct SettingsSheet: View {
                 GridRow {
                     Text("Hidden files")
                     Toggle("Show hidden files", isOn: $showHidden)
-                }
-                GridRow {
-                    Text("Name on network")
-                    TextField(defaultDeviceName, text: $deviceName)
-                        .textFieldStyle(PathsTextFieldStyle(scale: s))
-                        .frame(width: w)
-                }
-                GridRow(alignment: .firstTextBaseline) {
-                    Text("Save received files in")
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(receiveFolder).font(.system(size: 12 * s)).foregroundStyle(.secondary)
-                        Button("Use Current Folder") { receiveFolder = app.active.currentURL.path }
-                            .buttonStyle(PathsButtonStyle(scale: s))
-                    }
                 }
                 GridRow {
                     Color.clear.gridCellUnsizedAxes([.horizontal, .vertical])

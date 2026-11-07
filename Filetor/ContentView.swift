@@ -88,6 +88,10 @@ struct ContentView: View {
             ConflictSheet(request: request, manager: app.transfers)
         }
         .task {
+            app.network.onError = { app.alert = $0 }
+            app.network.start()
+        }
+        .task {
             if UserDefaults.standard.object(forKey: "autoUpdate") as? Bool ?? true {
                 await app.updater.check()
                 if case .available(let v, _) = app.updater.state {

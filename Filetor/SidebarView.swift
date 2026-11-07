@@ -132,28 +132,20 @@ struct SidebarView: View {
             .padding(.vertical, 5 * s)
             .contentShape(Rectangle())
             .onTapGesture { app.showConnect = true }
-            HStack(spacing: 8 * s) {
-                Image(systemName: ToolCatalog.symbol("airdrop"))
-                    .font(.system(size: 12.5 * s))
-                    .foregroundStyle(Color.accentColor)
-                    .frame(width: 20 * s)
-                Text("AirDrop").font(.system(size: 13 * s))
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5 * s)
-            .contentShape(Rectangle())
-            .help("Click to send the selected files, or drop files here")
-            .onTapGesture {
-                if app.active.selection.isEmpty {
-                    app.alert = "Select files first, or drag files onto AirDrop."
-                } else {
-                    app.airDrop(app.active.selection)
+            ForEach(app.network.servers) { server in
+                HStack(spacing: 8 * s) {
+                    Image(systemName: "desktopcomputer")
+                        .font(.system(size: 12.5 * s))
+                        .foregroundStyle(Color.accentColor)
+                        .frame(width: 20 * s)
+                    Text(server.name).font(.system(size: 13 * s)).lineLimit(1)
+                    Spacer(minLength: 0)
                 }
-            }
-            .dropDestination(for: URL.self) { urls, _ in
-                app.airDrop(Set(urls))
-                return true
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5 * s)
+                .contentShape(Rectangle())
+                .help("Connect to \(server.name)")
+                .onTapGesture { app.network.connect(server) }
             }
             }
         }
