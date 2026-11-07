@@ -246,17 +246,17 @@ struct TransferButton: View {
         Button { show.toggle() } label: {
             VStack(spacing: 3) {
                 ZStack {
-                    Circle().stroke(Color.primary.opacity(0.18), lineWidth: 1.5 * s)
+                    Circle().stroke(Color.primary.opacity(0.18), lineWidth: 1.2 * s)
                     Circle()
                         .trim(from: 0, to: max(0.04, min(1, app.transfers.overall)))
-                        .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 2 * s, lineCap: .round))
+                        .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 1.6 * s, lineCap: .round))
                         .rotationEffect(.degrees(-90))
                         .animation(.linear(duration: 0.25), value: app.transfers.overall)
                     Image(systemName: "arrow.left.arrow.right")
-                        .font(.system(size: 11 * s, weight: .regular))
+                        .font(.system(size: 8.5 * s, weight: .regular))
                         .foregroundStyle(Color.primary.opacity(0.6))
                 }
-                .frame(width: 28 * s, height: 28 * s)
+                .frame(width: 21 * s, height: 21 * s)
                 .frame(width: 42 * s, height: 30 * s)
                 if showLabel {
                     Text("\(Int(app.transfers.overall * 100))%").font(.system(size: 10.5 * s)).foregroundStyle(Color.primary.opacity(0.6))
