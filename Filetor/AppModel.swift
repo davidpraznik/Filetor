@@ -26,9 +26,15 @@ final class AppModel {
     let groups = [PaneGroup(), PaneGroup()]
     var activeIndex = 0
     var dual = true
+    let transfers = TransferManager()
     var alert: String?
     var renameTarget: URL?
     var renameText = ""
+
+    init() {
+        transfers.onFinished = { [weak self] in self?.refresh() }
+        transfers.onError = { [weak self] message in self?.alert = message }
+    }
 
     var activeGroup: PaneGroup { groups[activeIndex] }
     var active: PaneModel { activeGroup.current }
@@ -119,24 +125,8 @@ final class AppModel {
         }
         let src = sourceIndex(for: urls)
         let dst = groups[1 - src].current.currentURL
-        var failed: [String] = []
-        for url in urls {
-            let target = dst.appending(path: url.lastPathComponent)
-            if FileManager.default.fileExists(atPath: target.path) {
-                failed.append("\(url.lastPathComponent): already exists in the destination")
-                continue
-            }
-            do {
-                if move { try FileManager.default.moveItem(at: url, to: target) }
-                else { try FileManager.default.copyItem(at: url, to: target) }
-            } catch {
-                failed.append("\(url.lastPathComponent): \(error.localizedDescription)")
-            }
-        }
-        refresh()
-        if !failed.isEmpty {
-            alert = failed.joined(separator: "\n") + "\n\nThese items were skipped. The conflict dialog (Replace, Keep Both, Merge) comes in the next step."
-        }
+        let items = urls.sorted { $0.lastPathComponent < $1.lastPathComponent }.map { (src: $0, dstDir: dst) }
+        transfers.start(items: items, move: move)
     }
 }
 

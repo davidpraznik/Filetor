@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     let app: AppModel
+    @State private var showTransfers = false
 
     var body: some View {
         @Bindable var pane = app.active
@@ -39,6 +40,15 @@ struct ContentView: View {
                     .help("Enclosing Folder")
             }
             ToolbarItemGroup {
+                if app.transfers.hasActive {
+                    Button { showTransfers.toggle() } label: {
+                        Label("\(Int(app.transfers.overall * 100))%", systemImage: "arrow.left.arrow.right.circle")
+                    }
+                    .help("Transfers")
+                    .popover(isPresented: $showTransfers) {
+                        TransferList(manager: app.transfers)
+                    }
+                }
                 Button { app.dual.toggle() } label: {
                     Image(systemName: "rectangle.split.2x1")
                 }
@@ -68,6 +78,12 @@ struct ContentView: View {
             TextField("Name", text: $model.renameText)
             Button("Rename") { app.commitRename() }
             Button("Cancel", role: .cancel) {}
+        }
+        .sheet(item: Binding(
+            get: { app.transfers.pending },
+            set: { _ in }
+        )) { request in
+            ConflictSheet(request: request, manager: app.transfers)
         }
         .onChange(of: app.dual) { _, dual in
             if !dual { app.activeIndex = 0 }
