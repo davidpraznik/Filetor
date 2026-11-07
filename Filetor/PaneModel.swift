@@ -12,7 +12,7 @@ final class PaneModel: Identifiable {
     ]
     var errorMessage: String?
     var filter = ""
-    var showHidden = false
+    var showHidden = UserDefaults.standard.bool(forKey: "showHidden")
 
     private var backStack: [URL] = []
     private var forwardStack: [URL] = []
@@ -24,6 +24,8 @@ final class PaneModel: Identifiable {
     var sortedItems: [FileItem] {
         let visible = filter.isEmpty ? items : items.filter { $0.name.localizedCaseInsensitiveContains(filter) }
         let sorted = visible.sorted(using: sortOrder)
+        let foldersFirst = UserDefaults.standard.object(forKey: "foldersFirst") as? Bool ?? true
+        guard foldersFirst else { return sorted }
         return sorted.filter { $0.isDirectory } + sorted.filter { !$0.isDirectory }
     }
 

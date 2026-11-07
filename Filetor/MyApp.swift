@@ -7,11 +7,20 @@ import SwiftUI
         WindowGroup {
             ContentView(app: app)
         }
+        .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1100, height: 700)
         .commands {
             CommandGroup(after: .newItem) {
                 Button("New Tab") { app.newTab() }
                     .keyboardShortcut("t", modifiers: .command)
+            }
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings…") { app.showSettings = true }
+                    .keyboardShortcut(",", modifiers: .command)
+            }
+            CommandGroup(after: .toolbar) {
+                Button("Customize Toolbar…") { app.showCustomize = true }
+                Button("Restore Toolbar Defaults") { app.toolbarModel.restoreDefaults() }
             }
             CommandMenu("Files") {
                 Button("New Folder") { app.newFolder() }

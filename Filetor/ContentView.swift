@@ -2,209 +2,49 @@ import SwiftUI
 
 struct ContentView: View {
     let app: AppModel
-    @State private var showTransfers = false
+    @AppStorage("appearance") private var appearance = 0
+    @AppStorage("accent") private var accent = 0
+    @AppStorage("showSidebar") private var showSidebar = true
+    @AppStorage("textSize") private var textSize = 1
 
     var body: some View {
-        @Bindable var pane = app.active
         @Bindable var model = app
+        let pane = app.active
 
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $model.sidebarVisibility) {
             SidebarView(app: app)
-                .navigationSplitViewColumnWidth(min: 160, ideal: 200, max: 320)
+                .navigationSplitViewColumnWidth(min: 160, ideal: 200 * UIScale.value(textSize), max: 420)
+                .safeAreaInset(edge: .top, spacing: 0) { Color.clear.frame(height: 34) }
         } detail: {
-            DualPaneView(app: app)
-                .alert("Filetor", isPresented: Binding(
-                    get: { app.alert != nil },
-                    set: { if !$0 { app.alert = nil } }
-                )) {
-                    Button("OK") {}
-                } message: {
-                    Text(app.alert ?? "")
-                }
+            VStack(spacing: 0) {
+                CustomToolbar(app: app)
+                Divider()
+                DualPaneView(app: app)
+                    .alert("Filetor", isPresented: Binding(
+                        get: { app.alert != nil },
+                        set: { if !$0 { app.alert = nil } }
+                    )) {
+                        Button("OK") {}
+                    } message: {
+                        Text(app.alert ?? "")
+                    }
+            }
+            .ignoresSafeArea(.container, edges: .top)
         }
+        .preferredColorScheme(appearance == 0 ? .light : (appearance == 1 ? .dark : nil))
+        .tint(SettingsSheet.accents[min(max(accent, 0), SettingsSheet.accents.count - 1)])
         .navigationTitle(pane.currentURL.lastPathComponent.isEmpty ? "/" : pane.currentURL.lastPathComponent)
-        .modifier(HideNativeTitle())
-        .toolbar(id: "filetor.main") {
-            // Navigation
-            ToolbarItem(id: "backForward", placement: .navigation) {
-                ControlGroup {
-                    Button { app.active.goBack() } label: { Image(systemName: "chevron.left") }
-                        .disabled(!pane.canGoBack)
-                        .keyboardShortcut("[", modifiers: .command)
-                        .help("Back")
-                    Button { app.active.goForward() } label: { Image(systemName: "chevron.right") }
-                        .disabled(!pane.canGoForward)
-                        .keyboardShortcut("]", modifiers: .command)
-                        .help("Forward")
-                } label: {
-                    Label("Back/Forward", systemImage: "chevron.left.chevron.right")
-                }
-            }
-            ToolbarItem(id: "enclosing", placement: .navigation) {
-                Button { app.active.goUp() } label: { Label("Enclosing Folder", systemImage: "arrow.up") }
-                    .disabled(!pane.canGoUp)
-                    .keyboardShortcut(.upArrow, modifiers: .command)
-                    .help("Enclosing Folder")
-            }
-            .defaultCustomization(.hidden)
-            ToolbarItem(id: "title", placement: .navigation) {
-                // On macOS 14 the native window title stays and this item is empty.
-                if #available(macOS 15, *) {
-                    Text(pane.currentURL.lastPathComponent.isEmpty ? "/" : pane.currentURL.lastPathComponent)
-                        .font(.headline)
-                        .lineLimit(1)
-                }
-            }
-
-            // Selection actions (hidden by default, available in Customize Toolbar)
-            ToolbarItem(id: "quickLook", placement: .primaryAction) {
-                Button { app.quickLook(pane.selection) } label: { Label("Quick Look", systemImage: "eye") }
-                    .disabled(pane.selection.isEmpty)
-                    .help("Quick Look")
-            }
-            .defaultCustomization(.hidden)
-            ToolbarItem(id: "hiddenFiles", placement: .primaryAction) {
-                Button { app.active.toggleHidden() } label: {
-                    Label("Hidden Files", systemImage: pane.showHidden ? "eye" : "eye.slash")
-                }
-                .keyboardShortcut(".", modifiers: [.command, .shift])
-                .help("Show or Hide Hidden Files")
-            }
-            .defaultCustomization(.hidden)
-            ToolbarItem(id: "newFile", placement: .primaryAction) {
-                Button { app.newFile() } label: { Label("New File", systemImage: "doc.badge.plus") }
-                    .help("New File")
-            }
-            .defaultCustomization(.hidden)
-            ToolbarItem(id: "newTab", placement: .primaryAction) {
-                Button { app.newTab() } label: { Label("New Tab", systemImage: "plus") }
-                    .help("New Tab")
-            }
-            .defaultCustomization(.hidden)
-            ToolbarItem(id: "open", placement: .primaryAction) {
-                Button { app.openSelection() } label: { Label("Open", systemImage: "folder") }
-                    .disabled(pane.selection.isEmpty)
-                    .help("Open")
-            }
-            .defaultCustomization(.hidden)
-            ToolbarItem(id: "rename", placement: .primaryAction) {
-                Button { app.beginRename(pane.selection) } label: { Label("Rename", systemImage: "pencil") }
-                    .disabled(pane.selection.isEmpty)
-                    .help("Rename")
-            }
-            .defaultCustomization(.hidden)
-            ToolbarItem(id: "duplicate", placement: .primaryAction) {
-                Button { app.duplicate(pane.selection) } label: { Label("Duplicate", systemImage: "plus.square.on.square") }
-                    .disabled(pane.selection.isEmpty)
-                    .help("Duplicate")
-            }
-            .defaultCustomization(.hidden)
-            ToolbarItem(id: "copy", placement: .primaryAction) {
-                Button { app.transfer(pane.selection, move: false) } label: { Label("Copy", systemImage: "doc.on.doc") }
-                    .disabled(pane.selection.isEmpty || !app.dual)
-                    .help("Copy to Other Pane")
-            }
-            .defaultCustomization(.hidden)
-            ToolbarItem(id: "move", placement: .primaryAction) {
-                Button { app.transfer(pane.selection, move: true) } label: { Label("Move", systemImage: "arrow.right.doc.on.clipboard") }
-                    .disabled(pane.selection.isEmpty || !app.dual)
-                    .help("Move to Other Pane")
-            }
-            .defaultCustomization(.hidden)
-            ToolbarItem(id: "trash", placement: .primaryAction) {
-                Button { app.trash(pane.selection) } label: { Label("Move to Trash", systemImage: "trash") }
-                    .disabled(pane.selection.isEmpty)
-                    .help("Move to Trash")
-            }
-            .defaultCustomization(.hidden)
-            ToolbarItem(id: "compress", placement: .primaryAction) {
-                Button { app.compress(pane.selection) } label: { Label("Compress", systemImage: "arrow.down.right.and.arrow.up.left") }
-                    .disabled(pane.selection.isEmpty)
-                    .help("Compress")
-            }
-            .defaultCustomization(.hidden)
-            ToolbarItem(id: "decompress", placement: .primaryAction) {
-                Button { app.decompress(pane.selection) } label: { Label("Decompress", systemImage: "arrow.up.left.and.arrow.down.right") }
-                    .disabled(pane.selection.isEmpty)
-                    .help("Decompress")
-            }
-            .defaultCustomization(.hidden)
-            ToolbarItem(id: "folderSize", placement: .primaryAction) {
-                Button { app.folderSize(pane.selection) } label: { Label("Folder Size", systemImage: "chart.bar") }
-                    .disabled(pane.selection.isEmpty)
-                    .help("Folder Size")
-            }
-            .defaultCustomization(.hidden)
-
-            // Default set
-            ToolbarItem(id: "airDrop", placement: .primaryAction) {
-                Button { app.airDrop(pane.selection) } label: { Label("AirDrop", systemImage: "airplayaudio") }
-                    .disabled(pane.selection.isEmpty)
-                    .help("AirDrop")
-            }
-            ToolbarItem(id: "terminal", placement: .primaryAction) {
-                Button { app.openTerminal() } label: { Label("Terminal", systemImage: "apple.terminal") }
-                    .help("Open Terminal Here")
-            }
-            ToolbarItem(id: "touch", placement: .primaryAction) {
-                Button { app.touch(pane.selection) } label: { Label("Touch", systemImage: "clock") }
-                    .disabled(pane.selection.isEmpty)
-                    .help("Set Modification Date to Now")
-            }
-            ToolbarItem(id: "customize", placement: .primaryAction) {
-                Button {
-                    NSApp.sendAction(#selector(NSWindow.runToolbarCustomizationPalette(_:)), to: nil, from: nil)
-                } label: { Label("Customize", systemImage: "gearshape") }
-                    .help("Customize Toolbar")
-            }
-            ToolbarItem(id: "reload", placement: .primaryAction) {
-                Button { app.active.load() } label: { Label("Reload", systemImage: "arrow.clockwise") }
-                    .keyboardShortcut("r", modifiers: [.command, .option])
-                    .help("Reload")
-            }
-            ToolbarItem(id: "newFolder", placement: .primaryAction) {
-                Button { app.newFolder() } label: { Label("New Folder", systemImage: "folder.badge.plus") }
-                    .help("New Folder")
-            }
-            ToolbarItem(id: "copyPath", placement: .primaryAction) {
-                Button { app.copyPath() } label: { Label("Copy Path", systemImage: "link") }
-                    .help("Copy Path")
-            }
-            ToolbarItem(id: "swapPanes", placement: .primaryAction) {
-                Button { app.swapPanes() } label: { Label("Swap Panes", systemImage: "arrow.left.arrow.right") }
-                    .disabled(!app.dual)
-                    .help("Swap Panes")
-            }
-            ToolbarItem(id: "dual", placement: .primaryAction) {
-                Button { app.dual.toggle() } label: {
-                    Label("Dual Browser", systemImage: "rectangle.split.2x1")
-                }
-                .help("Dual Pane")
-            }
-            ToolbarItem(id: "filter", placement: .primaryAction) {
-                FilterField(text: $pane.filter)
-            }
-            // Transfer indicator: last item, far right, never moved into the overflow menu.
-            ToolbarItem(id: "transfers", placement: .primaryAction) {
-                if app.transfers.hasActive {
-                    Button { showTransfers.toggle() } label: {
-                        Label("\(Int(app.transfers.overall * 100))%", systemImage: "arrow.left.arrow.right.circle")
-                    }
-                    .help("Transfers")
-                    .popover(isPresented: $showTransfers) {
-                        TransferList(manager: app.transfers)
-                    }
-                }
-            }
-            .customizationBehavior(.disabled)
-        }
+        .toolbar(removing: .sidebarToggle)
         .background {
-            // Extra shortcuts that work on every keyboard layout.
+            // Keyboard shortcuts (the toolbar buttons are drawn by CustomToolbar).
             Group {
-                Button("Back") { app.active.goBack() }
-                    .keyboardShortcut(.leftArrow, modifiers: .command)
-                Button("Forward") { app.active.goForward() }
-                    .keyboardShortcut(.rightArrow, modifiers: .command)
+                Button("Back") { app.active.goBack() }.keyboardShortcut(.leftArrow, modifiers: .command)
+                Button("Forward") { app.active.goForward() }.keyboardShortcut(.rightArrow, modifiers: .command)
+                Button("Back ") { app.active.goBack() }.keyboardShortcut("[", modifiers: .command)
+                Button("Forward ") { app.active.goForward() }.keyboardShortcut("]", modifiers: .command)
+                Button("Enclosing") { app.active.goUp() }.keyboardShortcut(.upArrow, modifiers: .command)
+                Button("Hidden") { app.active.toggleHidden() }.keyboardShortcut(".", modifiers: [.command, .shift])
+                Button("Reload") { app.active.load() }.keyboardShortcut("r", modifiers: [.command, .option])
             }
             .opacity(0)
             .allowsHitTesting(false)
@@ -223,6 +63,14 @@ struct ContentView: View {
         )) { request in
             ConflictSheet(request: request, manager: app.transfers)
         }
+        .sheet(isPresented: $model.showSettings) {
+            SettingsSheet(app: app)
+        }
+        .sheet(isPresented: $model.showCustomize) {
+            CustomizeSheet(app: app)
+        }
+        .onChange(of: showSidebar) { _, v in app.sidebarVisibility = v ? .all : .detailOnly }
+        .onChange(of: app.sidebarVisibility) { _, v in showSidebar = (v != .detailOnly) }
         .onChange(of: app.dual) { _, dual in
             if !dual { app.activeIndex = 0 }
         }
@@ -253,6 +101,7 @@ struct PaneContainer: View {
 
 struct TabStrip: View {
     let group: PaneGroup
+    @AppStorage("textSize") private var textSize = 1
 
     var body: some View {
         HStack(spacing: 4) {
@@ -282,6 +131,7 @@ struct TabStrip: View {
                 .help("New Tab")
             Spacer()
         }
+        .font(.system(size: 12 * UIScale.value(textSize)))
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .background(.bar)
@@ -330,40 +180,3 @@ struct DualPaneView: View {
     }
 }
 
-struct FilterField: View {
-    @Binding var text: String
-
-    private var field: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-            TextField("Filter", text: $text).textFieldStyle(.plain)
-            if !text.isEmpty {
-                Button { text = "" } label: { Image(systemName: "xmark.circle.fill") }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .frame(width: 160)
-    }
-
-    var body: some View {
-        if #available(macOS 26, *) {
-            field
-        } else {
-            field
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
-        }
-    }
-}
-
-struct HideNativeTitle: ViewModifier {
-    func body(content: Content) -> some View {
-        if #available(macOS 15, *) {
-            content.toolbar(removing: .title)
-        } else {
-            content
-        }
-    }
-}

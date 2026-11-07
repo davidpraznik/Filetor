@@ -10,6 +10,7 @@ struct Place: Identifiable, Hashable {
 struct SidebarView: View {
     let app: AppModel
     @State private var selection: URL?
+    @AppStorage("textSize") private var textSize = 1
 
     private var favorites: [Place] {
         let home = FileManager.default.homeDirectoryForCurrentUser
@@ -40,6 +41,8 @@ struct SidebarView: View {
             }
         }
         .listStyle(.sidebar)
+        .font(.system(size: 13 * UIScale.value(textSize)))
+        .environment(\.sidebarRowSize, UIScale.value(textSize) >= 1.4 ? .large : .medium)
         .onChange(of: selection) { _, new in
             if let new { app.active.navigate(to: new) }
         }

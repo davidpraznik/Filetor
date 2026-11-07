@@ -25,8 +25,13 @@ final class PaneGroup {
 final class AppModel {
     let groups = [PaneGroup(), PaneGroup()]
     var activeIndex = 0
-    var dual = true
+    var dual = UserDefaults.standard.object(forKey: "startDual") as? Bool ?? true
     let transfers = TransferManager()
+    let toolbarModel = ToolbarModel()
+    var sidebarVisibility: NavigationSplitViewVisibility =
+        (UserDefaults.standard.object(forKey: "showSidebar") as? Bool ?? true) ? .all : .detailOnly
+    var showCustomize = false
+    var showSettings = false
     var alert: String?
     var renameTarget: URL?
     var renameText = ""
@@ -128,6 +133,15 @@ final class AppModel {
             let err = await Task.detached { FileTools.decompress(list, in: dir) }.value
             refresh()
             if let err { alert = err }
+        }
+    }
+
+    func setHidden(_ value: Bool) {
+        for g in groups {
+            for t in g.tabs {
+                t.showHidden = value
+                t.load()
+            }
         }
     }
 
