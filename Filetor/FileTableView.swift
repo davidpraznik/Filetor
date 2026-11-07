@@ -381,12 +381,6 @@ struct FileTableView: NSViewRepresentable {
                 })
             }
             menu.addItem(.separator())
-            let services = NSMenuItem(title: "Services", action: nil, keyEquivalent: "")
-            let servicesMenu = NSMenu(title: "Services")
-            services.submenu = servicesMenu
-            NSApp.servicesMenu = servicesMenu
-            menu.addItem(services)
-            menu.addItem(.separator())
             menu.addItem(item("Move to Trash") { [weak self] in self?.parent.app.trash(urls) })
         }
 
