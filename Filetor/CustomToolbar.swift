@@ -191,12 +191,8 @@ struct CustomToolbar: View {
                     VStack(spacing: 3) {
                         Image(systemName: def.symbol)
                             .font(.system(size: 16 * s, weight: .light))
-                            .foregroundStyle(Color.primary.opacity(0.6))
+                            .foregroundStyle((def.isOn?(app) ?? false) ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(Color.primary.opacity(0.6)))
                             .frame(width: 42 * s, height: 30 * s)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill((def.isOn?(app) ?? false) ? Color.primary.opacity(0.12) : Color.clear)
-                            )
                         if model.showLabels {
                             Text(def.title).font(.system(size: 10.5 * s)).foregroundStyle(Color.primary.opacity(0.6)).lineLimit(1)
                         }

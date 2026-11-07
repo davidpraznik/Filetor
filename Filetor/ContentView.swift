@@ -52,7 +52,7 @@ struct ContentView: View {
         .tint(SettingsSheet.accents[min(max(accent, 0), SettingsSheet.accents.count - 1)])
         .navigationTitle(pane.currentURL.lastPathComponent.isEmpty ? "/" : pane.currentURL.lastPathComponent)
         .toolbar(removing: .sidebarToggle)
-        .toolbar(.hidden, for: .windowToolbar)
+        .background(NativeToolbarRemover(trigger: "\(app.sidebarVisibility)"))
         .background {
             // Keyboard shortcuts (the toolbar buttons are drawn by CustomToolbar).
             Group {
@@ -191,3 +191,17 @@ struct DualPaneView: View {
     }
 }
 
+
+
+/// Removes the native NSToolbar (we draw our own), which also kills the automatic sidebar toggle bubble.
+struct NativeToolbarRemover: NSViewRepresentable {
+    let trigger: String
+
+    func makeNSView(context: Context) -> NSView { NSView() }
+
+    func updateNSView(_ view: NSView, context: Context) {
+        DispatchQueue.main.async {
+            view.window?.toolbar = nil
+        }
+    }
+}
