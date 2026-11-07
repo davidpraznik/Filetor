@@ -263,6 +263,20 @@ final class AppModel {
     }
 
     /// Files dropped onto a pane or folder (from the other pane, Drop Stack, Finder).
+    /// Moves every pane that is inside the volume to Home, then ejects it off the main thread.
+    func eject(_ volume: URL) {
+        let prefix = volume.standardizedFileURL.path
+        let home = URL(filePath: NSHomeDirectory())
+        for g in groups {
+            for t in g.tabs where t.currentURL.standardizedFileURL.path.hasPrefix(prefix) {
+                t.navigate(to: home)
+            }
+        }
+        DispatchQueue.global().async {
+            try? NSWorkspace.shared.unmountAndEjectDevice(at: volume)
+        }
+    }
+
     func dropTransfer(_ urls: [URL], into dir: URL, move: Bool) {
         let items = urls
             .filter { $0 != dir && !(move && $0.deletingLastPathComponent() == dir) }

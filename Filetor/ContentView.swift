@@ -89,6 +89,7 @@ struct ContentView: View {
         }
         .task {
             app.network.onError = { app.alert = $0 }
+            app.network.onMounted = { app.active.navigate(to: $0) }
             app.network.start()
         }
         .task {

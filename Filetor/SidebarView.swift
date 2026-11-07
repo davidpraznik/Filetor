@@ -95,7 +95,7 @@ struct SidebarView: View {
                         .lineLimit(1)
                     Spacer(minLength: 0)
                     if ejectable && p.url.path != "/" {
-                        Button { try? NSWorkspace.shared.unmountAndEjectDevice(at: p.url) } label: {
+                        Button { app.eject(p.url) } label: {
                             Image(systemName: "eject.fill")
                                 .font(.system(size: 10 * s))
                                 .foregroundStyle(Color.primary.opacity(0.5))

@@ -8,10 +8,32 @@ struct BreadcrumbBar: View {
 
     private var s: CGFloat { UIScale.value(textSize) }
 
+    /// Mounted volume (under /Volumes) the pane is in, if any. Its crumbs start at the volume, not at the boot disk.
+    private var volumeRoot: URL? {
+        let parts = pane.currentURL.standardizedFileURL.pathComponents
+        guard parts.count >= 3, parts[1] == "Volumes" else { return nil }
+        let v = URL(filePath: "/Volumes/" + parts[2])
+        // The boot disk shows up as a symlink in /Volumes; treat it as the normal root.
+        if (try? v.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink == true { return nil }
+        return v
+    }
+
+    private var rootIcon: String {
+        guard let v = volumeRoot else { return "internaldrive" }
+        let local = (try? v.resourceValues(forKeys: [.volumeIsLocalKey]))?.volumeIsLocal ?? true
+        return local ? "externaldrive" : "externaldrive.connected.to.line.below"
+    }
+
+    private var rootName: String {
+        volumeRoot?.lastPathComponent ?? FileManager.default.displayName(atPath: "/")
+    }
+
     private var crumbs: [URL] {
-        var list: [URL] = [URL(filePath: "/")]
-        var cur = URL(filePath: "/")
-        for part in pane.currentURL.standardizedFileURL.pathComponents.dropFirst() {
+        let base = volumeRoot ?? URL(filePath: "/")
+        var list: [URL] = [base]
+        var cur = base
+        let skip = volumeRoot == nil ? 1 : 3
+        for part in pane.currentURL.standardizedFileURL.pathComponents.dropFirst(skip) {
             cur = cur.appending(path: part)
             list.append(cur)
         }
@@ -32,7 +54,7 @@ struct BreadcrumbBar: View {
                         Button { pane.navigate(to: url) } label: {
                             HStack(spacing: 5 * s) {
                                 if i == 0 {
-                                    Image(systemName: "internaldrive")
+                                    Image(systemName: rootIcon)
                                         .font(.system(size: 12 * s))
                                         .foregroundStyle(Color.primary.opacity(0.55))
                                 } else {
@@ -40,7 +62,7 @@ struct BreadcrumbBar: View {
                                         .resizable()
                                         .frame(width: 15 * s, height: 15 * s)
                                 }
-                                Text(i == 0 ? FileManager.default.displayName(atPath: "/") : url.lastPathComponent)
+                                Text(i == 0 ? rootName : url.lastPathComponent)
                                     .font(.system(size: 14 * s))
                                     .lineLimit(1)
                             }
