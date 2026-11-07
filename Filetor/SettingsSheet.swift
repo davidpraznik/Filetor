@@ -23,13 +23,12 @@ struct SettingsSheet: View {
 
     private var s: CGFloat { UIScale.value(textSize) }
 
-    /// "Filetor 1.0 (3) · © 2026 David Praznik", read from the app's Info (Xcode target > Info).
+    /// "Filetor 0.1.1 · © 2026 David Praznik", read from the app's Info (Xcode target > Info).
     private var aboutLine: String {
         let info = Bundle.main.infoDictionary ?? [:]
         let version = info["CFBundleShortVersionString"] as? String ?? "?"
-        let build = info["CFBundleVersion"] as? String ?? "?"
         let copyright = info["NSHumanReadableCopyright"] as? String ?? ""
-        return "Filetor \(version) (\(build))" + (copyright.isEmpty ? "" : " · \(copyright)")
+        return "Filetor \(version)" + (copyright.isEmpty ? "" : " · \(copyright)")
     }
 
     var body: some View {
