@@ -133,6 +133,28 @@ struct FileTableView: NSViewRepresentable {
 
         func numberOfRows(in tableView: NSTableView) -> Int { items.count }
 
+        // MARK: Copy / paste files (⌘C, ⌘V) and Return to rename
+
+        func copySelection() {
+            let urls = previewURLs
+            guard !urls.isEmpty else { return }
+            let pb = NSPasteboard.general
+            pb.clearContents()
+            pb.writeObjects(urls as [NSURL])
+        }
+
+        func pasteHere() {
+            let urls = NSPasteboard.general.readObjects(forClasses: [NSURL.self],
+                                                        options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+            guard !urls.isEmpty else { return }
+            parent.app.dropTransfer(urls, into: parent.pane.currentURL, move: false)
+        }
+
+        func renameSelection() {
+            let urls = Set(previewURLs)
+            if !urls.isEmpty { parent.app.beginRename(urls) }
+        }
+
         // MARK: Quick Look (space bar)
 
         private var previewURLs: [URL] {
@@ -337,7 +359,14 @@ struct FileTableView: NSViewRepresentable {
 final class QLTableView: NSTableView {
     weak var qlSource: FileTableView.Coordinator?
 
+    @objc func copy(_ sender: Any?) { qlSource?.copySelection() }
+    @objc func paste(_ sender: Any?) { qlSource?.pasteHere() }
+
     override func keyDown(with event: NSEvent) {
+        if event.keyCode == 36, event.modifierFlags.intersection([.command, .option, .control]).isEmpty {
+            qlSource?.renameSelection()
+            return
+        }
         if event.charactersIgnoringModifiers == " ", event.modifierFlags.intersection([.command, .option, .control]).isEmpty {
             if QLPreviewPanel.sharedPreviewPanelExists(), QLPreviewPanel.shared().isVisible {
                 QLPreviewPanel.shared().orderOut(nil)
