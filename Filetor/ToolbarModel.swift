@@ -22,6 +22,7 @@ enum ToolCatalog {
         "backfwd": ("Back/Forward", "chevron.left.chevron.right"),
         "title": ("Title", "textformat"),
         "search": ("Search", "magnifyingglass"),
+        "view": ("View", "list.bullet"),
         "space": ("Space", "rectangle.dashed"),
         "flex": ("Flexible Space", "arrow.left.and.right"),
     ]
@@ -85,7 +86,7 @@ enum ToolCatalog {
 
     /// Order of the palette in the Customize sheet.
     static let palette: [String] = [
-        "sidebar", "backfwd", "enclosing", "title", "dual", "swap",
+        "sidebar", "backfwd", "enclosing", "title", "view", "dual", "swap",
         "quickLook", "hidden", "newFolder", "newFile", "newTab",
         "open", "rename", "duplicate", "copy", "move", "trash", "compress",
         "decompress", "touch", "copyPath", "terminal", "reload", "folderSize",
@@ -94,7 +95,7 @@ enum ToolCatalog {
 
     static let defaultKinds: [String] = [
         "backfwd", "title", "flex", "airdrop", "terminal", "touch", "customize", "reload",
-        "newFolder", "copyPath", "swap", "dual", "search",
+        "newFolder", "copyPath", "swap", "view", "dual", "search",
     ]
 }
 

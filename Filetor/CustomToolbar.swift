@@ -47,6 +47,7 @@ struct CustomToolbar: View {
         case "backfwd": return 100 * s
         case "title": return 190 * s
         case "search": return 180 * s
+        case "view": return 120 * s
         case "space": return 18 * s
         case "flex": return 0
         default: return buttonWidth
@@ -73,7 +74,7 @@ struct CustomToolbar: View {
             let base = geo.size.width - 28 - transfersWidth
             let first = split(available: base)
             let parts = first.hidden.isEmpty ? first : split(available: base - 40 * s)
-            let hiddenButtons = parts.hidden.filter { $0.kind != "flex" && $0.kind != "space" && $0.kind != "title" && $0.kind != "search" }
+            let hiddenButtons = parts.hidden.filter { $0.kind != "flex" && $0.kind != "space" && $0.kind != "title" && $0.kind != "search" && $0.kind != "view" }
 
             HStack(alignment: .center, spacing: 6) {
                 if model.entries.isEmpty {
@@ -176,6 +177,33 @@ struct CustomToolbar: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .frame(width: 190 * s, alignment: .leading)
+        case "view":
+            @Bindable var pane = app.active
+            VStack(spacing: 3) {
+                HStack(spacing: 2) {
+                    ForEach(Array(["list.bullet", "square.grid.2x2", "rectangle.split.3x1"].enumerated()), id: \.offset) { i, name in
+                        Image(systemName: name)
+                            .font(.system(size: 13 * s))
+                            .foregroundStyle(Color.primary.opacity(i == 2 ? 0.3 : 0.7))
+                            .frame(width: 34 * s, height: 24 * s)
+                            .background {
+                                if pane.viewMode == i {
+                                    RoundedRectangle(cornerRadius: 6).fill(Color(nsColor: .controlBackgroundColor))
+                                        .shadow(color: .black.opacity(0.12), radius: 0.8, y: 0.5)
+                                }
+                            }
+                            .contentShape(Rectangle())
+                            .onTapGesture { if i < 2 { pane.viewMode = i } }
+                    }
+                }
+                .padding(2)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.07)))
+                .frame(height: 30 * s)
+                if model.showLabels {
+                    Text("View").font(.system(size: 10.5 * s)).foregroundStyle(Color.primary.opacity(0.6))
+                }
+            }
+            .frame(width: 118 * s)
         case "search":
             @Bindable var pane = app.active
             VStack(spacing: 3) {

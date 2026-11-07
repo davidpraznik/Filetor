@@ -30,7 +30,16 @@ struct FileListView: View {
         }
     }
 
+    @ViewBuilder
     private var table: some View {
+        if pane.viewMode == 1 {
+            IconGridView(pane: pane, scale: scale)
+        } else {
+            listTable
+        }
+    }
+
+    private var listTable: some View {
         FileTableView(
             pane: pane, app: app,
             items: pane.sortedItems,

@@ -12,6 +12,8 @@ final class PaneModel: Identifiable {
     ]
     var errorMessage: String?
     var filter = ""
+    /// 0 = list, 1 = icons, 2 = columns (columns not built yet, shows the list)
+    var viewMode = 0
     var showHidden = UserDefaults.standard.bool(forKey: "showHidden")
 
     private var backStack: [URL] = []
