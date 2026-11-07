@@ -18,7 +18,8 @@ struct ContentView: View {
         } detail: {
             VStack(spacing: 0) {
                 CustomToolbar(app: app)
-                    .padding(.leading, app.sidebarVisibility == .detailOnly ? 76 + (app.toolbarModel.contains("sidebar") ? 0 : 36) : 0)
+                    .padding(.leading, app.sidebarVisibility == .detailOnly && !app.toolbarModel.contains("sidebar") ? 36 : 0)
+                    .padding(.top, app.sidebarVisibility == .detailOnly ? 16 : 0)
                     .overlay(alignment: .leading) {
                         if app.sidebarVisibility == .detailOnly && !app.toolbarModel.contains("sidebar") {
                             Button { app.sidebarVisibility = .all } label: {
@@ -30,7 +31,8 @@ struct ContentView: View {
                             }
                             .buttonStyle(.plain)
                             .help("Show Sidebar")
-                            .padding(.leading, 76)
+                            .padding(.leading, 10)
+                            .padding(.top, 16)
                         }
                     }
                 Divider()
