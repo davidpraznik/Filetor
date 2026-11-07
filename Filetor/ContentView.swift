@@ -81,6 +81,14 @@ struct ContentView: View {
         )) { request in
             ConflictSheet(request: request, manager: app.transfers)
         }
+        .task {
+            if UserDefaults.standard.object(forKey: "autoUpdate") as? Bool ?? true {
+                await app.updater.check()
+                if case .available(let v, _) = app.updater.state {
+                    app.alert = "Filetor \(v) is available. Open Settings to download it."
+                }
+            }
+        }
         .sheet(isPresented: $model.showConnect) {
             ConnectSheet(app: app)
         }

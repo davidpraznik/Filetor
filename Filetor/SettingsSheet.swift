@@ -1,4 +1,5 @@
 import SwiftUI
+import ServiceManagement
 
 struct SettingsSheet: View {
     let app: AppModel
@@ -15,6 +16,8 @@ struct SettingsSheet: View {
     @AppStorage("showSidebar") private var showSidebar = true
     @AppStorage("showHidden") private var showHidden = false
     @AppStorage("deviceName") private var deviceName = ""
+    @AppStorage("autoUpdate") private var autoUpdate = true
+    @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @AppStorage("receiveFolder") private var receiveFolder = NSHomeDirectory() + "/Downloads"
 
     static let accents: [Color] = [.blue, .purple, .pink, .red, .orange, .green, .gray]
@@ -115,9 +118,34 @@ struct SettingsSheet: View {
                 }
             }
 
-            Text(aboutLine)
-                .font(.system(size: 11.5 * s))
-                .foregroundStyle(Color.primary.opacity(0.45))
+            Divider()
+            VStack(alignment: .leading, spacing: 10) {
+                Toggle("Launch at login", isOn: $launchAtLogin)
+                    .onChange(of: launchAtLogin) { _, on in
+                        do {
+                            if on { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
+                        } catch {
+                            launchAtLogin = SMAppService.mainApp.status == .enabled
+                        }
+                    }
+                Toggle("Check for updates automatically", isOn: $autoUpdate)
+                HStack(spacing: 12) {
+                    Button("Check for updates") { Task { await app.updater.check() } }
+                        .buttonStyle(PathsButtonStyle(scale: s))
+                    Text(app.updater.message).foregroundStyle(.secondary)
+                    if case .available(_, let url) = app.updater.state {
+                        Link("Download", destination: url)
+                    }
+                }
+            }
+            Divider()
+            VStack(alignment: .leading, spacing: 4) {
+                Text(aboutLine).fontWeight(.semibold)
+                HStack(spacing: 14) {
+                    Link("github.com/\(UpdateChecker.repo)", destination: URL(string: "https://github.com/\(UpdateChecker.repo)")!)
+                    Link("Release notes", destination: URL(string: "https://github.com/\(UpdateChecker.repo)/releases")!)
+                }
+            }
         }
         .toggleStyle(PathsCheckboxStyle(scale: s))
         .font(.system(size: 13 * s))

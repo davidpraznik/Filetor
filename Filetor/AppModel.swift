@@ -33,6 +33,7 @@ final class AppModel {
     var showCustomize = false
     var showSettings = false
     var showConnect = false
+    let updater = UpdateChecker()
     /// Files collected in the sidebar Drop Stack.
     var dropStack: [URL] = []
     var alert: String?
