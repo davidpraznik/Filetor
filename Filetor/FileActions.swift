@@ -48,7 +48,15 @@ nonisolated enum FileTools {
         return run("/usr/bin/zip", ["-r", "-y", dest.path] + urls.map(\.lastPathComponent), cwd: dir)
     }
 
+    static let archiveExtensions: Set<String> = ["zip", "tar", "gz", "tgz", "bz2", "tbz", "tbz2", "xz", "txz"]
+
+    static func isArchive(_ url: URL) -> Bool {
+        archiveExtensions.contains(url.pathExtension.lowercased())
+    }
+
     static func decompress(_ urls: [URL], in dir: URL) -> String? {
+        let urls = urls.filter(isArchive)
+        if urls.isEmpty { return "Select one or more archives (zip, tar, gz, bz2, xz)." }
         var errors: [String] = []
         for url in urls {
             let dest = unique(dir.appending(path: url.deletingPathExtension().lastPathComponent))

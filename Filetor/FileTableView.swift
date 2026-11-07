@@ -380,7 +380,9 @@ struct FileTableView: NSViewRepresentable {
             menu.addItem(item("Move to Other Pane") { [weak self] in self?.parent.app.transfer(urls, move: true) })
             menu.addItem(.separator())
             menu.addItem(item("Compress") { [weak self] in self?.parent.app.compress(urls) })
-            menu.addItem(item("Decompress") { [weak self] in self?.parent.app.decompress(urls) })
+            if urls.contains(where: { FileTools.isArchive($0) }) {
+                menu.addItem(item("Decompress") { [weak self] in self?.parent.app.decompress(urls) })
+            }
             if urls.contains(where: { FileTools.isImage($0) }) {
                 menu.addItem(.separator())
                 menu.addItem(item("Rotate Left") { [weak self] in self?.parent.app.rotateImages(urls, degrees: 270) })
