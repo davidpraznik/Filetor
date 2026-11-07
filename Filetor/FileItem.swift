@@ -7,11 +7,15 @@ struct FileItem: Identifiable, Hashable {
     let size: Int64
     let modified: Date
     let kind: String
+    let created: Date
+    let added: Date
+    let lastOpened: Date
 
     var id: URL { url }
 
     static let keys: [URLResourceKey] = [
-        .isDirectoryKey, .fileSizeKey, .contentModificationDateKey, .localizedTypeDescriptionKey
+        .isDirectoryKey, .fileSizeKey, .contentModificationDateKey, .localizedTypeDescriptionKey,
+        .creationDateKey, .addedToDirectoryDateKey, .contentAccessDateKey
     ]
 
     init(url: URL) {
@@ -22,5 +26,8 @@ struct FileItem: Identifiable, Hashable {
         self.size = Int64(v?.fileSize ?? 0)
         self.modified = v?.contentModificationDate ?? .distantPast
         self.kind = v?.localizedTypeDescription ?? ""
+        self.created = v?.creationDate ?? .distantPast
+        self.added = v?.addedToDirectoryDate ?? .distantPast
+        self.lastOpened = v?.contentAccessDate ?? .distantPast
     }
 }

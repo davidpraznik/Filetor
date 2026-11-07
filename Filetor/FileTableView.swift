@@ -41,13 +41,22 @@ struct FileTableView: NSViewRepresentable {
         }
         add("name", "Name", 320, min: 140)
         add("modified", "Date Modified", 150, min: 100)
+        add("created", "Date Created", 150, min: 100)
+        add("lastOpened", "Date Last Opened", 160, min: 100)
+        add("added", "Date Added", 150, min: 100)
         add("kind", "Kind", 130, min: 80)
         add("size", "Size", 90, min: 60, right: true)
+        let visible = Coordinator.visibleColumns()
+        for col in table.tableColumns { col.isHidden = col.identifier.rawValue != "name" && !visible.contains(col.identifier.rawValue) }
         table.tableColumns[0].resizingMask = .autoresizingMask
 
         let menu = NSMenu()
         menu.delegate = c
         table.menu = menu
+        let headerMenu = NSMenu()
+        headerMenu.delegate = c
+        table.headerView?.menu = headerMenu
+        c.headerMenu = headerMenu
 
         let scroll = NSScrollView()
         scroll.documentView = table
@@ -93,11 +102,25 @@ struct FileTableView: NSViewRepresentable {
         var items: [FileItem] = []
         var lastSettings: [CGFloat] = []
         var syncing = false
+        var headerMenu: NSMenu?
+
+        static let optionalColumns: [(id: String, title: String)] = [
+            ("modified", "Date Modified"), ("created", "Date Created"), ("lastOpened", "Date Last Opened"),
+            ("added", "Date Added"), ("size", "Size"), ("kind", "Kind"),
+        ]
+
+        static func visibleColumns() -> Set<String> {
+            if let saved = UserDefaults.standard.array(forKey: "fileColumns") as? [String] { return Set(saved) }
+            return ["modified", "kind", "size"]
+        }
 
         init(_ parent: FileTableView) { self.parent = parent }
 
         static func key(for c: KeyPathComparator<FileItem>) -> String {
             if c.keyPath == \FileItem.modified as PartialKeyPath<FileItem> { return "modified" }
+            if c.keyPath == \FileItem.created as PartialKeyPath<FileItem> { return "created" }
+            if c.keyPath == \FileItem.lastOpened as PartialKeyPath<FileItem> { return "lastOpened" }
+            if c.keyPath == \FileItem.added as PartialKeyPath<FileItem> { return "added" }
             if c.keyPath == \FileItem.size as PartialKeyPath<FileItem> { return "size" }
             if c.keyPath == \FileItem.kind as PartialKeyPath<FileItem> { return "kind" }
             return "name"
@@ -148,8 +171,10 @@ struct FileTableView: NSViewRepresentable {
                 text.textColor = .secondaryLabelColor
                 text.alignment = .right
                 pin(text, in: cell)
-            case "modified":
-                text.stringValue = Self.dateString(item.modified)
+            case "modified", "created", "lastOpened", "added":
+                let d = id.rawValue == "modified" ? item.modified : id.rawValue == "created" ? item.created
+                    : id.rawValue == "added" ? item.added : item.lastOpened
+                text.stringValue = d == .distantPast ? "--" : Self.dateString(d)
                 text.textColor = .secondaryLabelColor
                 pin(text, in: cell)
             default:
@@ -188,6 +213,9 @@ struct FileTableView: NSViewRepresentable {
             let comparator: KeyPathComparator<FileItem>
             switch key {
             case "modified": comparator = KeyPathComparator(\FileItem.modified, order: order)
+            case "created": comparator = KeyPathComparator(\FileItem.created, order: order)
+            case "lastOpened": comparator = KeyPathComparator(\FileItem.lastOpened, order: order)
+            case "added": comparator = KeyPathComparator(\FileItem.added, order: order)
             case "size": comparator = KeyPathComparator(\FileItem.size, order: order)
             case "kind": comparator = KeyPathComparator(\FileItem.kind, comparator: .localizedStandard, order: order)
             default: comparator = KeyPathComparator(\FileItem.name, comparator: .localizedStandard, order: order)
@@ -205,6 +233,17 @@ struct FileTableView: NSViewRepresentable {
         func menuNeedsUpdate(_ menu: NSMenu) {
             menu.removeAllItems()
             guard let table else { return }
+            if menu === headerMenu {
+                let visible = Self.visibleColumns()
+                for col in Self.optionalColumns {
+                    let mi = NSMenuItem(title: col.title, action: #selector(toggleColumn(_:)), keyEquivalent: "")
+                    mi.target = self
+                    mi.representedObject = col.id
+                    mi.state = visible.contains(col.id) ? .on : .off
+                    menu.addItem(mi)
+                }
+                return
+            }
             let row = table.clickedRow
             if row >= 0, row < items.count, !table.selectedRowIndexes.contains(row) {
                 table.selectRowIndexes([row], byExtendingSelection: false)
@@ -221,6 +260,14 @@ struct FileTableView: NSViewRepresentable {
             menu.addItem(item("Move to Other Pane") { [weak self] in self?.parent.app.transfer(urls, move: true) })
             menu.addItem(.separator())
             menu.addItem(item("Move to Trash") { [weak self] in self?.parent.app.trash(urls) })
+        }
+
+        @objc private func toggleColumn(_ sender: NSMenuItem) {
+            guard let id = sender.representedObject as? String, let table else { return }
+            var visible = Self.visibleColumns()
+            if visible.contains(id) { visible.remove(id) } else { visible.insert(id) }
+            UserDefaults.standard.set(Array(visible), forKey: "fileColumns")
+            table.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier(id))?.isHidden = !visible.contains(id)
         }
 
         private func item(_ title: String, _ action: @escaping () -> Void) -> NSMenuItem {
