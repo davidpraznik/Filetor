@@ -33,6 +33,19 @@ struct FileListView: View {
         } primaryAction: { urls in
             pane.open(urls)
         }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            HStack {
+                Text((pane.currentURL.path as NSString).abbreviatingWithTildeInPath)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.head)
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 5)
+            .background(.bar)
+        }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             HStack {
                 Text(statusText)

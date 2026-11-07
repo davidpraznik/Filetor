@@ -8,7 +8,7 @@ struct Place: Identifiable, Hashable {
 }
 
 struct SidebarView: View {
-    let pane: PaneModel
+    let app: AppModel
     @State private var selection: URL?
 
     private var favorites: [Place] {
@@ -41,7 +41,7 @@ struct SidebarView: View {
         }
         .listStyle(.sidebar)
         .onChange(of: selection) { _, new in
-            if let new { pane.navigate(to: new) }
+            if let new { app.active.navigate(to: new) }
         }
     }
 }
