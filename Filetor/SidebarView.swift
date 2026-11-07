@@ -23,7 +23,10 @@ struct SidebarView: View {
         ]
     }
 
+    @State private var tick = 0
+
     private var devices: [Place] {
+        _ = tick
         let keys: [URLResourceKey] = [.volumeNameKey, .volumeIsInternalKey]
         let vols = FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: keys, options: [.skipHiddenVolumes]) ?? []
         return vols.map { url in
@@ -39,7 +42,8 @@ struct SidebarView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14 * s) {
                 dropStack
-                section("Devices", devices)
+                section("Devices", devices, ejectable: true)
+                shared
                 section("Favorites", favorites)
             }
             .padding(.horizontal, 10)
@@ -48,12 +52,14 @@ struct SidebarView: View {
         }
         .scrollContentBackground(.hidden)
         .background(Color.primary.opacity(0.04))
+        .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didMountNotification)) { _ in tick += 1 }
+        .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didUnmountNotification)) { _ in tick += 1 }
         .onChange(of: selection) { _, new in
             if let new { app.active.navigate(to: new) }
         }
     }
 
-    private func section(_ title: String, _ places: [Place]) -> some View {
+    private func section(_ title: String, _ places: [Place], ejectable: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 2 * s) {
             Text(title)
                 .font(.system(size: 11.5 * s, weight: .semibold))
@@ -72,6 +78,15 @@ struct SidebarView: View {
                         .foregroundStyle(Color.primary)
                         .lineLimit(1)
                     Spacer(minLength: 0)
+                    if ejectable && p.url.path != "/" {
+                        Button { try? NSWorkspace.shared.unmountAndEjectDevice(at: p.url) } label: {
+                            Image(systemName: "eject.fill")
+                                .font(.system(size: 10 * s))
+                                .foregroundStyle(Color.primary.opacity(0.5))
+                        }
+                        .buttonStyle(.plain)
+                        .help("Eject")
+                    }
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 5 * s)
@@ -83,6 +98,28 @@ struct SidebarView: View {
     }
 
     @State private var dropTargeted = false
+
+    private var shared: some View {
+        VStack(alignment: .leading, spacing: 2 * s) {
+            Text("Shared")
+                .font(.system(size: 11.5 * s, weight: .semibold))
+                .foregroundStyle(Color.primary.opacity(0.4))
+                .padding(.horizontal, 8)
+                .padding(.bottom, 2 * s)
+            HStack(spacing: 8 * s) {
+                Image(systemName: "plus")
+                    .font(.system(size: 12.5 * s))
+                    .foregroundStyle(Color.accentColor)
+                    .frame(width: 20 * s)
+                Text("Connect to Server…").font(.system(size: 13 * s))
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5 * s)
+            .contentShape(Rectangle())
+            .onTapGesture { app.showConnect = true }
+        }
+    }
 
     private var dropStack: some View {
         VStack(alignment: .leading, spacing: 6 * s) {

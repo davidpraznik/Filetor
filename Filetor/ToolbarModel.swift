@@ -75,6 +75,8 @@ enum ToolCatalog {
                 run: { $0.folderSize($0.active.selection) }),
         ToolDef(id: "airdrop", title: "AirDrop", symbol: "airplayaudio", needsSelection: true,
                 run: { $0.airDrop($0.active.selection) }),
+        ToolDef(id: "connect", title: "Connect", symbol: "globe",
+                run: { $0.showConnect = true }),
         ToolDef(id: "customize", title: "Customize", symbol: "gearshape",
                 run: { $0.showSettings = true }),
     ]
@@ -90,12 +92,12 @@ enum ToolCatalog {
         "quickLook", "hidden", "newFolder", "newFile", "newTab",
         "open", "rename", "duplicate", "copy", "move", "trash", "compress",
         "decompress", "touch", "copyPath", "terminal", "reload", "folderSize",
-        "airdrop", "customize", "search", "space", "flex",
+        "airdrop", "connect", "customize", "search", "space", "flex",
     ]
 
     static let defaultKinds: [String] = [
         "backfwd", "title", "flex", "airdrop", "terminal", "touch", "customize", "reload",
-        "newFolder", "copyPath", "swap", "view", "dual", "search",
+        "newFolder", "copyPath", "connect", "swap", "view", "dual", "search",
     ]
 }
 

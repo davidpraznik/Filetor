@@ -81,6 +81,9 @@ struct ContentView: View {
         )) { request in
             ConflictSheet(request: request, manager: app.transfers)
         }
+        .sheet(isPresented: $model.showConnect) {
+            ConnectSheet(app: app)
+        }
         .sheet(isPresented: $model.showSettings) {
             SettingsSheet(app: app)
         }

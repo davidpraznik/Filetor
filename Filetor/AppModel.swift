@@ -32,6 +32,7 @@ final class AppModel {
         (UserDefaults.standard.object(forKey: "showSidebar") as? Bool ?? true) ? .all : .detailOnly
     var showCustomize = false
     var showSettings = false
+    var showConnect = false
     /// Files collected in the sidebar Drop Stack.
     var dropStack: [URL] = []
     var alert: String?
