@@ -33,10 +33,28 @@ struct FileListView: View {
         } primaryAction: { urls in
             pane.open(urls)
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            HStack {
+                Text(statusText)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 5)
+            .background(.bar)
+        }
         .overlay {
             if let msg = pane.errorMessage {
                 ContentUnavailableView("Cannot open folder", systemImage: "lock", description: Text(msg))
             }
         }
+    }
+
+    private var statusText: String {
+        let total = pane.sortedItems.count
+        let selected = pane.selection.count
+        let items = total == 1 ? "1 item" : "\(total) items"
+        return selected > 0 ? "\(selected) of \(items) selected" : items
     }
 }

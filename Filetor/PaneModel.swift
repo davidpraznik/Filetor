@@ -10,6 +10,8 @@ final class PaneModel {
         KeyPathComparator(\FileItem.name, comparator: .localizedStandard)
     ]
     var errorMessage: String?
+    var filter = ""
+    var showHidden = false
 
     private var backStack: [URL] = []
     private var forwardStack: [URL] = []
@@ -19,7 +21,8 @@ final class PaneModel {
     var canGoUp: Bool { currentURL.path != "/" }
 
     var sortedItems: [FileItem] {
-        let sorted = items.sorted(using: sortOrder)
+        let visible = filter.isEmpty ? items : items.filter { $0.name.localizedCaseInsensitiveContains(filter) }
+        let sorted = visible.sorted(using: sortOrder)
         return sorted.filter { $0.isDirectory } + sorted.filter { !$0.isDirectory }
     }
 
@@ -31,6 +34,7 @@ final class PaneModel {
         backStack.append(currentURL)
         forwardStack.removeAll()
         currentURL = target
+        filter = ""
         load()
     }
 
@@ -65,13 +69,18 @@ final class PaneModel {
         }
     }
 
+    func toggleHidden() {
+        showHidden.toggle()
+        load()
+    }
+
     func load() {
         selection.removeAll()
         do {
             let urls = try FileManager.default.contentsOfDirectory(
                 at: currentURL,
                 includingPropertiesForKeys: FileItem.keys,
-                options: [.skipsHiddenFiles]
+                options: showHidden ? [] : [.skipsHiddenFiles]
             )
             items = urls.map { FileItem(url: $0) }
             errorMessage = nil
