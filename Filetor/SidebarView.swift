@@ -12,15 +12,16 @@ struct SidebarView: View {
     @State private var selection: URL?
     @AppStorage("textSize") private var textSize = 1
 
-    private var favorites: [Place] {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        return [
-            Place(name: "Home", icon: "house", url: home),
-            Place(name: "Desktop", icon: "menubar.dock.rectangle", url: home.appending(path: "Desktop")),
-            Place(name: "Documents", icon: "doc", url: home.appending(path: "Documents")),
-            Place(name: "Downloads", icon: "arrow.down.circle", url: home.appending(path: "Downloads")),
-            Place(name: "Applications", icon: "square.grid.2x2", url: URL(filePath: "/Applications")),
-        ]
+    private var favorites: [Place] { app.favorites.urls.map { app.favorites.place(for: $0) } }
+
+    @AppStorage("sidebarCollapsed") private var collapsedRaw = ""
+
+    private func isCollapsed(_ title: String) -> Bool { collapsedRaw.split(separator: ",").contains(Substring(title)) }
+
+    private func toggleCollapsed(_ title: String) {
+        var set = Set(collapsedRaw.split(separator: ",").map(String.init))
+        if set.contains(title) { set.remove(title) } else { set.insert(title) }
+        collapsedRaw = set.joined(separator: ",")
     }
 
     @State private var tick = 0
@@ -44,7 +45,11 @@ struct SidebarView: View {
                 dropStack
                 section("Devices", devices, ejectable: true)
                 shared
-                section("Favorites", favorites)
+                section("Favorites", favorites, isFavorites: true)
+                    .dropDestination(for: URL.self) { urls, _ in
+                        app.favorites.insert(urls, before: nil)
+                        return true
+                    }
             }
             .padding(.horizontal, 10)
             .padding(.top, 4)
@@ -59,14 +64,25 @@ struct SidebarView: View {
         }
     }
 
-    private func section(_ title: String, _ places: [Place], ejectable: Bool = false) -> some View {
-        VStack(alignment: .leading, spacing: 2 * s) {
+    private func sectionHeader(_ title: String) -> some View {
+        HStack(spacing: 4) {
             Text(title)
                 .font(.system(size: 11.5 * s, weight: .semibold))
-                .foregroundStyle(Color.primary.opacity(0.4))
-                .padding(.horizontal, 8)
-                .padding(.bottom, 2 * s)
-            ForEach(places) { p in
+            Image(systemName: isCollapsed(title) ? "chevron.right" : "chevron.down")
+                .font(.system(size: 8 * s, weight: .bold))
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(Color.primary.opacity(0.4))
+        .padding(.horizontal, 8)
+        .padding(.bottom, 2 * s)
+        .contentShape(Rectangle())
+        .onTapGesture { withAnimation(.easeInOut(duration: 0.15)) { toggleCollapsed(title) } }
+    }
+
+    private func section(_ title: String, _ places: [Place], ejectable: Bool = false, isFavorites: Bool = false) -> some View {
+        VStack(alignment: .leading, spacing: 2 * s) {
+            sectionHeader(title)
+            ForEach(isCollapsed(title) ? [] : places) { p in
                 let on = selection == p.url
                 HStack(spacing: 8 * s) {
                     Image(systemName: p.icon)
@@ -93,6 +109,7 @@ struct SidebarView: View {
                 .background(RoundedRectangle(cornerRadius: 7).fill(on ? Color.primary.opacity(0.09) : Color.clear))
                 .contentShape(Rectangle())
                 .onTapGesture { selection = p.url }
+                .modifier(FavoriteRowModifier(enabled: isFavorites, url: p.url, app: app))
             }
         }
     }
@@ -204,5 +221,28 @@ struct SidebarView: View {
             for u in urls where !app.dropStack.contains(u) { app.dropStack.append(u) }
             return true
         } isTargeted: { dropTargeted = $0 }
+    }
+}
+
+/// Drag to reorder, drop folders to add, right-click to remove (Favorites only).
+struct FavoriteRowModifier: ViewModifier {
+    let enabled: Bool
+    let url: URL
+    let app: AppModel
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content
+                .draggable(url)
+                .dropDestination(for: URL.self) { urls, _ in
+                    app.favorites.insert(urls, before: url)
+                    return true
+                }
+                .contextMenu {
+                    Button("Remove from Favorites") { app.favorites.remove(url) }
+                }
+        } else {
+            content
+        }
     }
 }

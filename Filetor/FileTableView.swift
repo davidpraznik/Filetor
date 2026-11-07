@@ -325,6 +325,14 @@ struct FileTableView: NSViewRepresentable {
             menu.addItem(item("Copy to Other Pane") { [weak self] in self?.parent.app.transfer(urls, move: false) })
             menu.addItem(item("Move to Other Pane") { [weak self] in self?.parent.app.transfer(urls, move: true) })
             menu.addItem(.separator())
+            let folders = urls.filter { u in items.first { $0.url == u }?.isDirectory ?? false }
+            if !folders.isEmpty {
+                menu.addItem(.separator())
+                menu.addItem(item("Add to Favorites") { [weak self] in
+                    self?.parent.app.favorites.insert(Array(folders), before: nil)
+                })
+            }
+            menu.addItem(.separator())
             menu.addItem(item("Move to Trash") { [weak self] in self?.parent.app.trash(urls) })
         }
 
