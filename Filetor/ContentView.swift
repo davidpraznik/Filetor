@@ -243,12 +243,20 @@ struct NativeToolbarRemover: NSViewRepresentable {
     /// brings it back (popovers, palette, sheets, focus changes), so the sidebar button never shows.
     final class Watcher: NSView {
         nonisolated(unsafe) private var observer: NSObjectProtocol?
+        nonisolated(unsafe) private var toolbarObservation: NSKeyValueObservation?
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
             if let o = observer { NotificationCenter.default.removeObserver(o); observer = nil }
+            toolbarObservation = nil
             guard let window else { return }
             window.toolbar = nil
+            // Remove a re-created toolbar immediately (same run loop pass), so the layout never shifts.
+            toolbarObservation = window.observe(\.toolbar, options: [.new]) { w, _ in
+                MainActor.assumeIsolated {
+                    if w.toolbar != nil { w.toolbar = nil }
+                }
+            }
             observer = NotificationCenter.default.addObserver(forName: NSWindow.didUpdateNotification, object: window, queue: .main) { [weak window] _ in
                 MainActor.assumeIsolated {
                     if window?.toolbar != nil { window?.toolbar = nil }
