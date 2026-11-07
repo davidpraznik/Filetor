@@ -334,6 +334,22 @@ struct FileTableView: NSViewRepresentable {
             }
             let urls = Set(table.selectedRowIndexes.compactMap { $0 < items.count ? items[$0].url : nil })
             menu.addItem(item("Open") { [weak self] in self?.parent.pane.open(urls) })
+            let apps = parent.app.openApps(for: urls)
+            if !apps.isEmpty {
+                let with = NSMenuItem(title: "Open With", action: nil, keyEquivalent: "")
+                let sub = NSMenu()
+                for appURL in apps {
+                    let mi = item(FileManager.default.displayName(atPath: appURL.path)) { [weak self] in
+                        self?.parent.app.open(urls, with: appURL)
+                    }
+                    let icon = NSWorkspace.shared.icon(forFile: appURL.path)
+                    icon.size = NSSize(width: 16, height: 16)
+                    mi.image = icon
+                    sub.addItem(mi)
+                }
+                with.submenu = sub
+                menu.addItem(with)
+            }
             menu.addItem(.separator())
             menu.addItem(item("Rename…") { [weak self] in self?.parent.app.beginRename(urls) })
             menu.addItem(item("Copy to Other Pane") { [weak self] in self?.parent.app.transfer(urls, move: false) })
