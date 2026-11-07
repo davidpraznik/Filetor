@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import Quartz
 
 /// AppKit file list: flat full-width stripes that run to the bottom, right-aligned Size column and header.
 struct FileTableView: NSViewRepresentable {
@@ -16,7 +17,8 @@ struct FileTableView: NSViewRepresentable {
 
     func makeNSView(context: Context) -> NSScrollView {
         let c = context.coordinator
-        let table = NSTableView()
+        let table = QLTableView()
+        table.qlSource = c
         table.style = .plain
         table.allowsMultipleSelection = true
         table.allowsColumnReordering = false
@@ -99,7 +101,7 @@ struct FileTableView: NSViewRepresentable {
 
     // MARK: Coordinator
 
-    final class Coordinator: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate {
+    final class Coordinator: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate, QLPreviewPanelDataSource, QLPreviewPanelDelegate {
         var parent: FileTableView
         weak var table: NSTableView?
         var items: [FileItem] = []
@@ -130,6 +132,20 @@ struct FileTableView: NSViewRepresentable {
         }
 
         func numberOfRows(in tableView: NSTableView) -> Int { items.count }
+
+        // MARK: Quick Look (space bar)
+
+        private var previewURLs: [URL] {
+            guard let table else { return [] }
+            return table.selectedRowIndexes.compactMap { $0 < items.count ? items[$0].url : nil }
+        }
+
+        func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int { previewURLs.count }
+
+        func previewPanel(_ panel: QLPreviewPanel!, previewItemAt index: Int) -> QLPreviewItem! {
+            let urls = previewURLs
+            return index < urls.count ? urls[index] as NSURL : nil
+        }
 
         /// Lets files be dragged out of the list (Drop Stack, Finder, other apps).
         func tableView(_ tableView: NSTableView, pasteboardWriterForRow row: Int) -> NSPasteboardWriting? {
@@ -208,6 +224,9 @@ struct FileTableView: NSViewRepresentable {
             guard !syncing, let table else { return }
             let urls = Set(table.selectedRowIndexes.compactMap { $0 < items.count ? items[$0].url : nil })
             parent.pane.selection = urls
+            if QLPreviewPanel.sharedPreviewPanelExists(), QLPreviewPanel.shared().isVisible {
+                QLPreviewPanel.shared().reloadData()
+            }
         }
 
         func tableView(_ tableView: NSTableView, sortDescriptorsDidChange oldDescriptors: [NSSortDescriptor]) {
@@ -310,5 +329,35 @@ struct FileTableView: NSViewRepresentable {
             let run: () -> Void
             init(_ run: @escaping () -> Void) { self.run = run }
         }
+    }
+}
+
+
+/// Table that handles the space bar as Quick Look, like Finder.
+final class QLTableView: NSTableView {
+    weak var qlSource: FileTableView.Coordinator?
+
+    override func keyDown(with event: NSEvent) {
+        if event.charactersIgnoringModifiers == " ", event.modifierFlags.intersection([.command, .option, .control]).isEmpty {
+            if QLPreviewPanel.sharedPreviewPanelExists(), QLPreviewPanel.shared().isVisible {
+                QLPreviewPanel.shared().orderOut(nil)
+            } else if selectedRow >= 0 {
+                QLPreviewPanel.shared().makeKeyAndOrderFront(nil)
+            }
+            return
+        }
+        super.keyDown(with: event)
+    }
+
+    override func acceptsPreviewPanelControl(_ panel: QLPreviewPanel!) -> Bool { true }
+
+    override func beginPreviewPanelControl(_ panel: QLPreviewPanel!) {
+        panel.dataSource = qlSource
+        panel.delegate = qlSource
+    }
+
+    override func endPreviewPanelControl(_ panel: QLPreviewPanel!) {
+        panel.dataSource = nil
+        panel.delegate = nil
     }
 }
