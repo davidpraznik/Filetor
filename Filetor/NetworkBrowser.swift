@@ -85,11 +85,12 @@ final class NetworkBrowser: NSObject, NetServiceBrowserDelegate, NetServiceDeleg
     nonisolated func netServiceDidResolveAddress(_ sender: NetService) {
         let host = (sender.hostName ?? "").trimmingCharacters(in: CharacterSet(charactersIn: "."))
         let scheme = sender.type.hasPrefix("_afp") ? "afp" : "smb"
+        let name = sender.name
         let key = ObjectIdentifier(sender)
         Task { @MainActor in
             self.resolving.removeAll { ObjectIdentifier($0) == key }
             if let url = URL(string: "\(scheme)://\(host)") {
-                self.mount(url, name: sender.name)
+                self.mount(url, name: name)
             }
         }
     }

@@ -104,8 +104,14 @@ extension Color {
     }
 }
 
+/// Wraps the close action so the environment value is not a bare closure (avoids @Entry warning).
+struct PanelCloser {
+    let action: () -> Void
+    func callAsFunction() { action() }
+}
+
 extension EnvironmentValues {
-    @Entry var closePanel: () -> Void = {}
+    @Entry var closePanel = PanelCloser(action: {})
 }
 
 private struct FloatingPanel<Panel: View>: ViewModifier {
@@ -120,7 +126,7 @@ private struct FloatingPanel<Panel: View>: ViewModifier {
                         .ignoresSafeArea()
                         .onTapGesture { isPresented = false }
                     panel()
-                        .environment(\.closePanel, { isPresented = false })
+                        .environment(\.closePanel, PanelCloser(action: { isPresented = false }))
                         .background {
                             RoundedRectangle(cornerRadius: 12)
                                 .fill(Color(nsColor: .windowBackgroundColor))
