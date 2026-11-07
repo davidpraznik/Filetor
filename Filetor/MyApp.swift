@@ -14,6 +14,22 @@ import SwiftUI
                 Button("New Tab") { app.newTab() }
                     .keyboardShortcut("t", modifiers: .command)
             }
+            CommandGroup(replacing: .appInfo) {
+                Button("About Filetor") {
+                    let link = "https://github.com/\(UpdateChecker.repo)"
+                    let credits = NSMutableAttributedString(
+                        string: "github.com/\(UpdateChecker.repo)",
+                        attributes: [
+                            .link: URL(string: link)!,
+                            .font: NSFont.systemFont(ofSize: 11),
+                        ]
+                    )
+                    let center = NSMutableParagraphStyle()
+                    center.alignment = .center
+                    credits.addAttribute(.paragraphStyle, value: center, range: NSRange(location: 0, length: credits.length))
+                    NSApp.orderFrontStandardAboutPanel(options: [.credits: credits])
+                }
+            }
             CommandGroup(replacing: .appSettings) {
                 Button("Settings…") { app.showSettings = true }
                     .keyboardShortcut(",", modifiers: .command)
