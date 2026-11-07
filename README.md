@@ -28,6 +28,7 @@ I made it for my own work, where I move and compare files between folders, disks
 - Touch: sets the modification date of the selected files to now.
 - Folder Size for any folder.
 - Compress and Decompress, Copy Path, Reveal in Finder, Open in Terminal.
+- Rotate Left, Rotate Right and Convert Image (PNG, JPEG, HEIC, TIFF) for image files.
 - Open With, Share and the macOS Services menu, from the Commands menu and the context menu.
 - Show or hide hidden files with one click.
 
