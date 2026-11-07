@@ -125,7 +125,7 @@ struct SettingsSheet: View {
             }
             Divider()
             VStack(alignment: .leading, spacing: 4) {
-                Text(aboutLine).fontWeight(.semibold)
+                Text(aboutLine).fontWeight(.light)
                 HStack {
                     Link("github.com/\(UpdateChecker.repo)", destination: URL(string: "https://github.com/\(UpdateChecker.repo)")!)
                     Spacer(minLength: 14)
