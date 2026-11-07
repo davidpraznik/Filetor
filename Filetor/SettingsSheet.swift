@@ -21,6 +21,15 @@ struct SettingsSheet: View {
     static let sizeNames = ["S", "M", "L", "XL", "Turbo"]
 
     private var s: CGFloat { UIScale.value(textSize) }
+
+    /// "Filetor 1.0 (3) · © 2026 David Praznik", read from the app's Info (Xcode target > Info).
+    private var aboutLine: String {
+        let info = Bundle.main.infoDictionary ?? [:]
+        let version = info["CFBundleShortVersionString"] as? String ?? "?"
+        let build = info["CFBundleVersion"] as? String ?? "?"
+        let copyright = info["NSHumanReadableCopyright"] as? String ?? ""
+        return "Filetor \(version) (\(build))" + (copyright.isEmpty ? "" : " · \(copyright)")
+    }
     private var defaultDeviceName: String { Host.current().localizedName ?? "My Mac" }
 
     var body: some View {
@@ -105,6 +114,10 @@ struct SettingsSheet: View {
                         .frame(maxWidth: .infinity, alignment: .trailing)
                 }
             }
+
+            Text(aboutLine)
+                .font(.system(size: 11.5 * s))
+                .foregroundStyle(Color.primary.opacity(0.45))
         }
         .toggleStyle(PathsCheckboxStyle(scale: s))
         .font(.system(size: 13 * s))

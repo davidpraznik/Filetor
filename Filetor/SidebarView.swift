@@ -111,13 +111,36 @@ struct SidebarView: View {
                     .font(.system(size: 12.5 * s))
                     .foregroundStyle(Color.accentColor)
                     .frame(width: 20 * s)
-                Text("Connect to Server…").font(.system(size: 13 * s))
+                Text("Connect to Server").font(.system(size: 13 * s))
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 5 * s)
             .contentShape(Rectangle())
             .onTapGesture { app.showConnect = true }
+            HStack(spacing: 8 * s) {
+                Image(systemName: ToolCatalog.symbol("airdrop"))
+                    .font(.system(size: 12.5 * s))
+                    .foregroundStyle(Color.accentColor)
+                    .frame(width: 20 * s)
+                Text("AirDrop").font(.system(size: 13 * s))
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5 * s)
+            .contentShape(Rectangle())
+            .help("Click to send the selected files, or drop files here")
+            .onTapGesture {
+                if app.active.selection.isEmpty {
+                    app.alert = "Select files first, or drag files onto AirDrop."
+                } else {
+                    app.airDrop(app.active.selection)
+                }
+            }
+            .dropDestination(for: URL.self) { urls, _ in
+                app.airDrop(Set(urls))
+                return true
+            }
         }
     }
 
