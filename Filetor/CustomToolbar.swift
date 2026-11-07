@@ -280,7 +280,7 @@ struct CustomizeSheet: View {
             Text("Click an item to add or remove it, or drag it into the toolbar below. Drag items in the toolbar to reorder them, or out of it to remove them.")
                 .foregroundStyle(.secondary)
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 104 * s), spacing: 0)], spacing: 14 * s) {
+            WrapGrid(cellWidth: 118 * s, rowSpacing: 14 * s) {
                 ForEach(ToolCatalog.palette, id: \.self) { kind in
                     paletteCell(kind, s)
                 }
@@ -291,7 +291,7 @@ struct CustomizeSheet: View {
             }
 
             Text("Toolbar").foregroundStyle(.secondary)
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 104 * s), spacing: 0)], alignment: .leading, spacing: 14 * s) {
+            WrapGrid(cellWidth: 118 * s, rowSpacing: 14 * s) {
                 ForEach(model.entries) { entry in
                     stripCell(entry, s)
                 }
@@ -341,7 +341,7 @@ struct CustomizeSheet: View {
                 }
                 .font(.system(size: 12 * s, weight: .medium))
             case "title":
-                Text("Folder").font(.system(size: 17 * s)).frame(height: h)
+                Text("Folder").font(.system(size: 16 * s)).lineLimit(1).fixedSize().frame(height: h)
             case "flex":
                 RoundedRectangle(cornerRadius: 7).fill(Color(nsColor: .controlBackgroundColor))
                     .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(line))
@@ -352,10 +352,14 @@ struct CustomizeSheet: View {
                     .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(line))
                     .frame(width: 30 * s, height: 30 * s)
             case "search":
-                Capsule().fill(Color.primary.opacity(0.08)).frame(width: 56 * s, height: h * 0.7)
-                Image(systemName: "magnifyingglass").font(.system(size: 12 * s))
-                    .foregroundStyle(Color.primary.opacity(0.6))
-                    .frame(width: 56 * s, alignment: .leading).padding(.leading, 20 * s)
+                Capsule().fill(Color.primary.opacity(0.07)).frame(width: 60 * s, height: h * 0.7)
+                HStack {
+                    Image(systemName: "magnifyingglass").font(.system(size: 12 * s))
+                        .foregroundStyle(Color.primary.opacity(0.6))
+                    Spacer(minLength: 0)
+                }
+                .padding(.leading, 12 * s)
+                .frame(width: 60 * s)
             default:
                 Circle().fill(Color(nsColor: .controlBackgroundColor))
                     .overlay(Circle().strokeBorder(line))
