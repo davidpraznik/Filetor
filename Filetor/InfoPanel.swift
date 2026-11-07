@@ -1,10 +1,12 @@
 import SwiftUI
+import QuickLookThumbnailing
 
 /// Right-hand info panel: details of the selected item, or of the current folder when nothing is selected.
 struct InfoPanel: View {
     let app: AppModel
     @AppStorage("textSize") private var textSize = 1
     @State private var totalSize: Int64?
+    @State private var thumbnail: NSImage?
 
     private var s: CGFloat { UIScale.value(textSize) }
 
@@ -24,6 +26,20 @@ struct InfoPanel: View {
         }
         .frame(width: 270 * s)
         .background(Color.primary.opacity(0.025))
+        .task(id: urls) {
+            thumbnail = nil
+            if urls.count == 1, let url = urls.first {
+                let request = QLThumbnailGenerator.Request(
+                    fileAt: url,
+                    size: CGSize(width: 240 * s, height: 220 * s),
+                    scale: NSScreen.main?.backingScaleFactor ?? 2,
+                    representationTypes: .thumbnail
+                )
+                if let rep = try? await QLThumbnailGenerator.shared.generateBestRepresentation(for: request) {
+                    thumbnail = rep.nsImage
+                }
+            }
+        }
         .task(id: urls + [pane.currentURL]) {
             totalSize = nil
             let list = urls.isEmpty ? [pane.currentURL] : urls
@@ -38,9 +54,18 @@ struct InfoPanel: View {
         return VStack(alignment: .leading, spacing: 14 * s) {
             HStack {
                 Spacer()
-                Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
-                    .resizable()
-                    .frame(width: 84 * s, height: 84 * s)
+                if let thumbnail, !isFolderView {
+                    Image(nsImage: thumbnail)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: 238 * s, maxHeight: 220 * s)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .shadow(color: .black.opacity(0.15), radius: 2, y: 1)
+                } else {
+                    Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
+                        .resizable()
+                        .frame(width: 84 * s, height: 84 * s)
+                }
                 Spacer()
             }
             VStack(alignment: .leading, spacing: 2) {
