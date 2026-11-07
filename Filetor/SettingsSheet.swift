@@ -141,8 +141,9 @@ struct SettingsSheet: View {
             Divider()
             VStack(alignment: .leading, spacing: 4) {
                 Text(aboutLine).fontWeight(.semibold)
-                HStack(spacing: 14) {
+                HStack {
                     Link("github.com/\(UpdateChecker.repo)", destination: URL(string: "https://github.com/\(UpdateChecker.repo)")!)
+                    Spacer(minLength: 14)
                     Link("Release notes", destination: URL(string: "https://github.com/\(UpdateChecker.repo)/releases")!)
                 }
             }
