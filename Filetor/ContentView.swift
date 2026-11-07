@@ -18,6 +18,7 @@ struct ContentView: View {
         } detail: {
             VStack(spacing: 0) {
                 CustomToolbar(app: app)
+                    .padding(.leading, app.sidebarVisibility == .detailOnly ? 76 : 0)
                 Divider()
                 DualPaneView(app: app)
                     .alert("Filetor", isPresented: Binding(
@@ -35,6 +36,7 @@ struct ContentView: View {
         .tint(SettingsSheet.accents[min(max(accent, 0), SettingsSheet.accents.count - 1)])
         .navigationTitle(pane.currentURL.lastPathComponent.isEmpty ? "/" : pane.currentURL.lastPathComponent)
         .toolbar(removing: .sidebarToggle)
+        .toolbar(.hidden, for: .windowToolbar)
         .background {
             // Keyboard shortcuts (the toolbar buttons are drawn by CustomToolbar).
             Group {
