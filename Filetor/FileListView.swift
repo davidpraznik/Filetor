@@ -25,7 +25,7 @@ struct FileListView: View {
                     .foregroundStyle(Color.primary.opacity(0.55))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 7 * scale)
-                    .background(isActive ? Color.accentColor.opacity(0.16) : Color.primary.opacity(0.025))
+                    .background(isActive ? Color.filetor.opacity(0.16) : Color.primary.opacity(0.025))
             }
         }
     }

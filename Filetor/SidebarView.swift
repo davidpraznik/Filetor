@@ -87,7 +87,7 @@ struct SidebarView: View {
                 HStack(spacing: 8 * s) {
                     Image(systemName: p.icon)
                         .font(.system(size: 12.5 * s))
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(Color.filetor)
                         .frame(width: 20 * s)
                     Text(p.name)
                         .font(.system(size: 13 * s))
@@ -123,7 +123,7 @@ struct SidebarView: View {
             HStack(spacing: 8 * s) {
                 Image(systemName: "plus")
                     .font(.system(size: 12.5 * s))
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(Color.filetor)
                     .frame(width: 20 * s)
                 Text("Connect to Server").font(.system(size: 13 * s))
                 Spacer(minLength: 0)
@@ -136,7 +136,7 @@ struct SidebarView: View {
                 HStack(spacing: 8 * s) {
                     Image(systemName: "desktopcomputer")
                         .font(.system(size: 12.5 * s))
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(Color.filetor)
                         .frame(width: 20 * s)
                     Text(server.name).font(.system(size: 13 * s)).lineLimit(1)
                     Spacer(minLength: 0)
@@ -204,7 +204,7 @@ struct SidebarView: View {
         .overlay(
             RoundedRectangle(cornerRadius: 8)
                 .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
-                .foregroundStyle(dropTargeted ? Color.accentColor : Color.primary.opacity(0.3))
+                .foregroundStyle(dropTargeted ? Color.filetor : Color.primary.opacity(0.3))
                 .padding(.top, 20 * s)
         )
         .dropDestination(for: URL.self) { urls, _ in

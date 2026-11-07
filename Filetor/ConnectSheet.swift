@@ -3,7 +3,7 @@ import SwiftUI
 /// Connect to a network server (smb://, afp://, nfs://, https:// WebDAV). macOS mounts it and it appears under Devices.
 struct ConnectSheet: View {
     let app: AppModel
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.closePanel) private var dismiss
     @AppStorage("textSize") private var textSize = 1
     @AppStorage("recentServers") private var recentRaw = ""
     @State private var address = ""
@@ -25,7 +25,7 @@ struct ConnectSheet: View {
                     ForEach(recents, id: \.self) { r in
                         Button(r) { address = r }
                             .buttonStyle(.plain)
-                            .foregroundStyle(Color.accentColor)
+                            .foregroundStyle(Color.filetor)
                     }
                 }
             }

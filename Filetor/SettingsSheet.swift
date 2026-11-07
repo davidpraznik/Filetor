@@ -3,7 +3,7 @@ import ServiceManagement
 
 struct SettingsSheet: View {
     let app: AppModel
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.closePanel) private var dismiss
 
     @AppStorage("appearance") private var appearance = 0
     @AppStorage("accent") private var accent = 0

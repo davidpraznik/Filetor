@@ -184,7 +184,7 @@ struct CustomToolbar: View {
                     ForEach(Array(["list.bullet", "square.grid.2x2", "rectangle.split.3x1"].enumerated()), id: \.offset) { i, name in
                         Image(systemName: name)
                             .font(.system(size: 13 * s))
-                            .foregroundStyle(pane.viewMode == i ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(Color.primary.opacity(0.6)))
+                            .foregroundStyle(pane.viewMode == i ? AnyShapeStyle(Color.filetor) : AnyShapeStyle(Color.primary.opacity(0.6)))
                             .frame(width: 34 * s, height: 24 * s)
                             .background {
                                 if pane.viewMode == i {
@@ -219,7 +219,7 @@ struct CustomToolbar: View {
                     VStack(spacing: 3) {
                         Image(systemName: def.symbol)
                             .font(.system(size: 16 * s, weight: .light))
-                            .foregroundStyle((def.isOn?(app) ?? false) ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(Color.primary.opacity(0.6)))
+                            .foregroundStyle((def.isOn?(app) ?? false) ? AnyShapeStyle(Color.filetor) : AnyShapeStyle(Color.primary.opacity(0.6)))
                             .frame(width: 42 * s, height: 30 * s)
                         if model.showLabels {
                             Text(def.title).font(.system(size: 10.5 * s)).foregroundStyle(Color.primary.opacity(0.6)).lineLimit(1)
@@ -249,7 +249,7 @@ struct TransferButton: View {
                     Circle().stroke(Color.primary.opacity(0.18), lineWidth: 1.2 * s)
                     Circle()
                         .trim(from: 0, to: max(0.04, min(1, app.transfers.overall)))
-                        .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 1.6 * s, lineCap: .round))
+                        .stroke(Color.filetor, style: StrokeStyle(lineWidth: 1.6 * s, lineCap: .round))
                         .rotationEffect(.degrees(-90))
                         .animation(.linear(duration: 0.25), value: app.transfers.overall)
                     Image(systemName: "arrow.left.arrow.right")
@@ -299,7 +299,7 @@ struct FilterField: View {
 
 struct CustomizeSheet: View {
     let app: AppModel
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.closePanel) private var dismiss
     @AppStorage("textSize") private var textSize = 1
 
     private var model: ToolbarModel { app.toolbarModel }

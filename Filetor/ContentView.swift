@@ -56,6 +56,7 @@ struct ContentView: View {
         }
         .preferredColorScheme(appearance == 0 ? .light : (appearance == 1 ? .dark : nil))
         .tint(SettingsSheet.accents[min(max(accent, 0), SettingsSheet.accents.count - 1)])
+        .id(accent)
         .navigationTitle(pane.currentURL.lastPathComponent.isEmpty ? "/" : pane.currentURL.lastPathComponent)
         .toolbar(removing: .sidebarToggle)
         .background(NativeToolbarRemover(trigger: "\(app.sidebarVisibility)"))
@@ -100,16 +101,16 @@ struct ContentView: View {
                 }
             }
         }
-        .sheet(isPresented: Binding(get: { model.batchRename != nil }, set: { if !$0 { model.batchRename = nil } })) {
+        .floatingPanel(isPresented: Binding(get: { model.batchRename != nil }, set: { if !$0 { model.batchRename = nil } })) {
             if let urls = model.batchRename { BatchRenameSheet(app: app, urls: urls) }
         }
-        .sheet(isPresented: $model.showConnect) {
+        .floatingPanel(isPresented: $model.showConnect) {
             ConnectSheet(app: app)
         }
-        .sheet(isPresented: $model.showSettings) {
+        .floatingPanel(isPresented: $model.showSettings) {
             SettingsSheet(app: app)
         }
-        .sheet(isPresented: $model.showCustomize) {
+        .floatingPanel(isPresented: $model.showCustomize) {
             CustomizeSheet(app: app)
         }
         .onChange(of: showSidebar) { _, v in app.sidebarVisibility = v ? .all : .detailOnly }

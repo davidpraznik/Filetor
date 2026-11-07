@@ -80,7 +80,7 @@ private struct ColumnList: View {
                     .foregroundStyle(on ? Color.white : Color.primary)
                     .padding(.horizontal, 8)
                     .frame(height: 24 * scale)
-                    .background(on ? Color.accentColor : Color.clear)
+                    .background(on ? Color.filetor : Color.clear)
                     .contentShape(Rectangle())
                     .draggable(item.url)
                     .onTapGesture(count: 2) { open(item) }

@@ -4,7 +4,7 @@ import SwiftUI
 struct BatchRenameSheet: View {
     let app: AppModel
     let urls: [URL]
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.closePanel) private var dismiss
     @AppStorage("textSize") private var textSize = 1
 
     @State private var mode = 0

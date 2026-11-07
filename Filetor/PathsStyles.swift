@@ -85,3 +85,46 @@ struct PathsTextFieldStyle: TextFieldStyle {
             .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Color.primary.opacity(0.18)))
     }
 }
+
+// MARK: - Accent colour and click-outside panels
+
+extension Color {
+    /// The accent chosen in Settings.
+    static var filetor: Color {
+        let i = UserDefaults.standard.integer(forKey: "accent")
+        return SettingsSheet.accents[min(max(i, 0), SettingsSheet.accents.count - 1)]
+    }
+}
+
+extension EnvironmentValues {
+    @Entry var closePanel: () -> Void = {}
+}
+
+private struct FloatingPanel<Panel: View>: ViewModifier {
+    @Binding var isPresented: Bool
+    @ViewBuilder var panel: () -> Panel
+
+    func body(content: Content) -> some View {
+        content.overlay {
+            if isPresented {
+                ZStack {
+                    Color.black.opacity(0.25)
+                        .ignoresSafeArea()
+                        .onTapGesture { isPresented = false }
+                    panel()
+                        .environment(\.closePanel, { isPresented = false })
+                        .background(Color(nsColor: .windowBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
+                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary.opacity(0.12)))
+                        .shadow(color: .black.opacity(0.3), radius: 24, y: 8)
+                }
+            }
+        }
+    }
+}
+
+extension View {
+    /// Like .sheet, but a click on the dimmed area outside the panel closes it too.
+    func floatingPanel<Panel: View>(isPresented: Binding<Bool>, @ViewBuilder content: @escaping () -> Panel) -> some View {
+        modifier(FloatingPanel(isPresented: isPresented, panel: content))
+    }
+}

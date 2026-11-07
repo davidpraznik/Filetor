@@ -20,7 +20,7 @@ struct IconGridView: View {
                             .lineLimit(2)
                             .foregroundStyle(selected ? Color.white : Color.primary)
                             .padding(.horizontal, 4)
-                            .background(RoundedRectangle(cornerRadius: 4).fill(selected ? Color.accentColor : Color.clear))
+                            .background(RoundedRectangle(cornerRadius: 4).fill(selected ? Color.filetor : Color.clear))
                     }
                     .padding(6)
                     .frame(maxWidth: .infinity)
