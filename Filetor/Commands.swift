@@ -279,7 +279,7 @@ nonisolated struct SyncRow: Identifiable, Sendable {
     }
 }
 
-extension FolderAnalysis {
+nonisolated extension FolderAnalysis {
     static func syncRows(_ leftRoot: URL, _ rightRoot: URL) -> [SyncRow] {
         let l = scan(leftRoot), r = scan(rightRoot)
         var rows: [SyncRow] = []
