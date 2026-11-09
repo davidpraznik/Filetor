@@ -15,7 +15,7 @@ struct FileListView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            BreadcrumbBar(pane: pane, onNewTab: onNewTab)
+            BreadcrumbBar(pane: pane, app: app, onNewTab: onNewTab)
             Divider()
             table
             if statusBar {

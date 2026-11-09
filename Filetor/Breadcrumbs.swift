@@ -3,6 +3,7 @@ import SwiftUI
 /// Clickable path above each pane, Paths style. The + at the right opens a new tab.
 struct BreadcrumbBar: View {
     let pane: PaneModel
+    let app: AppModel
     let onNewTab: () -> Void
     @AppStorage("textSize") private var textSize = 1
     @State private var contentWidth: CGFloat = 0
@@ -54,6 +55,37 @@ struct BreadcrumbBar: View {
         return list
     }
 
+    /// Right-click menu of a crumb (folder or disk in the path).
+    @ViewBuilder private func crumbMenu(_ url: URL, isRoot: Bool) -> some View {
+        let ownGroup = app.groups.first { g in g.tabs.contains { $0 === pane } }
+        let otherGroup = app.groups.first { $0 !== ownGroup }
+        Button("Open") { pane.navigate(to: url) }
+        if app.dual, let otherGroup {
+            Button("Open in Other Pane") { otherGroup.current.navigate(to: url) }
+        }
+        if let ownGroup {
+            Button("Open in New Tab") { ownGroup.newTab(at: url) }
+        }
+        Divider()
+        Button("Copy Path") {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(url.path, forType: .string)
+        }
+        Button("Get Info") { app.getInfo([url]) }
+        Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+        Button("Open in Terminal") {
+            NSWorkspace.shared.open([url],
+                                    withApplicationAt: URL(fileURLWithPath: "/System/Applications/Utilities/Terminal.app"),
+                                    configuration: NSWorkspace.OpenConfiguration())
+        }
+        Divider()
+        Button("Add to Favorites") { app.favorites.insert([url], before: nil) }
+        if isRoot, let v = volumeRoot {
+            Divider()
+            Button("Eject") { app.eject(v) }
+        }
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             ScrollViewReader { proxy in
@@ -84,6 +116,7 @@ struct BreadcrumbBar: View {
                             }
                         }
                         .buttonStyle(.plain)
+                        .contextMenu { crumbMenu(url, isRoot: i == 0) }
                         .id(i)
                     }
                 }

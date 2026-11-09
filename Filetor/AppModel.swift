@@ -13,6 +13,11 @@ final class PaneGroup {
         selected = tabs.count - 1
     }
 
+    func newTab(at url: URL) {
+        tabs.append(PaneModel(url: url))
+        selected = tabs.count - 1
+    }
+
     func close(at index: Int) {
         guard tabs.count > 1, tabs.indices.contains(index) else { return }
         tabs.remove(at: index)
