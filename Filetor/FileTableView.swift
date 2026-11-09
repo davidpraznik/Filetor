@@ -59,6 +59,8 @@ struct FileTableView: NSViewRepresentable {
         let menu = NSMenu()
         menu.delegate = c
         table.menu = menu
+        let oldHeader = table.headerView
+        table.headerView = SortHeaderView(frame: oldHeader?.frame ?? NSRect(x: 0, y: 0, width: 0, height: 28))
         let headerMenu = NSMenu()
         headerMenu.delegate = c
         table.headerView?.menu = headerMenu
@@ -524,5 +526,23 @@ final class QLTableView: NSTableView {
     override func endPreviewPanelControl(_ panel: QLPreviewPanel!) {
         panel.dataSource = nil
         panel.delegate = nil
+    }
+}
+
+
+/// Column header where a quick second click sorts again. AppKit counts it as a double-click and skips the sort.
+final class SortHeaderView: NSTableHeaderView {
+    override func mouseDown(with event: NSEvent) {
+        guard event.clickCount > 1, let table = tableView else { super.mouseDown(with: event); return }
+        let point = convert(event.locationInWindow, from: nil)
+        let index = column(at: point)
+        guard index >= 0, index < table.tableColumns.count,
+              let proto = table.tableColumns[index].sortDescriptorPrototype else { super.mouseDown(with: event); return }
+        // Near a column edge a double-click auto-sizes the column; leave that to AppKit.
+        let rect = headerRect(ofColumn: index)
+        if point.x < rect.minX + 5 || point.x > rect.maxX - 5 { super.mouseDown(with: event); return }
+        let current = table.sortDescriptors.first
+        let ascending = current?.key == proto.key ? !(current?.ascending ?? true) : proto.ascending
+        table.sortDescriptors = [NSSortDescriptor(key: proto.key, ascending: ascending)]
     }
 }
