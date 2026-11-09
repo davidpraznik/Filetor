@@ -90,14 +90,6 @@ struct ContentView: View {
             .opacity(0)
             .allowsHitTesting(false)
         }
-        .alert("Rename", isPresented: Binding(
-            get: { app.renameTarget != nil },
-            set: { if !$0 { app.renameTarget = nil } }
-        )) {
-            TextField("Name", text: $model.renameText)
-            Button("Rename") { app.commitRename() }
-            Button("Cancel", role: .cancel) {}
-        }
         .sheet(item: Binding(
             get: { app.transfers.pending },
             set: { _ in }
@@ -254,6 +246,7 @@ struct NativeToolbarRemover: NSViewRepresentable {
             toolbarObservation = nil
             guard let window else { return }
             window.toolbar = nil
+            window.tabbingMode = .disallowed
             // Remove a re-created toolbar immediately (same run loop pass), so the layout never shifts.
             toolbarObservation = window.observe(\.toolbar, options: [.new]) { w, _ in
                 MainActor.assumeIsolated {

@@ -103,6 +103,11 @@ struct FileTableView: NSViewRepresentable {
             }
         }
         if itemsChanged || settingsChanged { table.reloadData() }
+        // Rename happens in the row. Only the pane that holds the item starts it (the active one when both do).
+        if let target = app.renameTarget, !c.renaming, items.contains(where: { $0.url == target }),
+           pane === app.active || !app.active.items.contains(where: { $0.url == target }) {
+            DispatchQueue.main.async { c.beginInlineRename(target) }
+        }
         let rows = IndexSet(items.indices.filter { selection.contains(items[$0].url) })
         if table.selectedRowIndexes != rows { table.selectRowIndexes(rows, byExtendingSelection: false) }
         c.syncing = false
@@ -110,7 +115,7 @@ struct FileTableView: NSViewRepresentable {
 
     // MARK: Coordinator
 
-    final class Coordinator: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate, QLPreviewPanelDataSource, QLPreviewPanelDelegate {
+    final class Coordinator: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate, NSTextFieldDelegate, QLPreviewPanelDataSource, QLPreviewPanelDelegate {
         var parent: FileTableView
         weak var table: NSTableView?
         var items: [FileItem] = []
@@ -170,6 +175,58 @@ struct FileTableView: NSViewRepresentable {
         func renameSelection() {
             let urls = Set(previewURLs)
             if !urls.isEmpty { parent.app.beginRename(urls) }
+        }
+
+        // MARK: Rename in the row, like Finder
+
+        var renaming = false
+        private var renameOriginal = ""
+
+        func beginInlineRename(_ url: URL) {
+            guard !renaming, let table,
+                  let row = items.firstIndex(where: { $0.url == url }),
+                  let col = table.tableColumns.firstIndex(where: { $0.identifier.rawValue == "name" }) else { return }
+            table.scrollRowToVisible(row)
+            guard let cell = table.view(atColumn: col, row: row, makeIfNecessary: true) as? NSTableCellView,
+                  let field = cell.textField else { return }
+            renaming = true
+            renameOriginal = items[row].name
+            field.isEditable = true
+            field.isSelectable = true
+            field.isBezeled = true
+            field.bezelStyle = .squareBezel
+            field.drawsBackground = true
+            field.backgroundColor = .textBackgroundColor
+            field.textColor = .textColor
+            (field.cell as? NSTextFieldCell)?.backgroundStyle = .normal
+            field.delegate = self
+            field.stringValue = renameOriginal
+            table.window?.makeFirstResponder(field)
+            if let editor = field.currentEditor() {
+                let name = renameOriginal as NSString
+                let ext = name.pathExtension
+                let keepAll = items[row].isDirectory || ext.isEmpty || name.length == ext.count + 1
+                editor.selectedRange = NSRange(location: 0, length: keepAll ? name.length : name.length - ext.count - 1)
+            }
+        }
+
+        func controlTextDidEndEditing(_ obj: Notification) {
+            guard renaming, let field = obj.object as? NSTextField else { return }
+            renaming = false
+            let cancelled = (obj.userInfo?["NSTextMovement"] as? Int) == NSTextMovement.cancel.rawValue
+            let newName = field.stringValue
+            field.isEditable = false
+            field.isSelectable = false
+            field.isBezeled = false
+            field.drawsBackground = false
+            field.stringValue = renameOriginal
+            table?.window?.makeFirstResponder(table)
+            if cancelled {
+                parent.app.renameTarget = nil
+            } else {
+                parent.app.renameText = newName
+                parent.app.commitRename()
+            }
         }
 
         // MARK: Quick Look (space bar)

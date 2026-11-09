@@ -3,6 +3,11 @@ import SwiftUI
 @main struct FiletorApp: App {
     @State private var app = AppModel()
 
+    init() {
+        // Filetor has its own tabs; the system tab bar would draw over the toolbar.
+        NSWindow.allowsAutomaticWindowTabbing = false
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView(app: app)
@@ -33,7 +38,7 @@ import SwiftUI
             CommandGroup(replacing: .undoRedo) {
                 Button(app.undoTitle ?? "Undo") { app.undo() }
                     .keyboardShortcut("z", modifiers: .command)
-                Button("Redo") { NSApp.sendAction(Selector(("redo:")), to: nil, from: nil) }
+                Button(app.redoTitle ?? "Redo") { app.redo() }
                     .keyboardShortcut("z", modifiers: [.command, .shift])
             }
             CommandGroup(replacing: .appSettings) {

@@ -1,10 +1,11 @@
 import SwiftUI
 import Observation
 
-/// One thing ⌘Z can take back. `run` returns an error message, or nil when it worked.
+/// One thing ⌘Z can take back and ⇧⌘Z can do again. The closures return an error message, or nil when it worked.
 struct UndoStep {
     let title: String
-    let run: () -> String?
+    let undo: () -> String?
+    let redo: () -> String?
 }
 
 @Observable
@@ -63,23 +64,39 @@ final class AppModel {
     var report: Report?
     var renameTarget: URL?
     var renameText = ""
-    /// Steps that ⌘Z can undo (newest last).
+    /// Steps that ⌘Z can undo, and steps that ⇧⌘Z can do again (newest last).
     private(set) var undoSteps: [UndoStep] = []
+    private(set) var redoSteps: [UndoStep] = []
     var undoTitle: String? { undoSteps.last.map { "Undo " + $0.title } }
+    var redoTitle: String? { redoSteps.last.map { "Redo " + $0.title } }
 
-    func pushUndo(_ title: String, _ run: @escaping () -> String?) {
-        undoSteps.append(UndoStep(title: title, run: run))
+    func pushUndo(_ title: String, undo: @escaping () -> String?, redo: @escaping () -> String?) {
+        undoSteps.append(UndoStep(title: title, undo: undo, redo: redo))
         if undoSteps.count > 50 { undoSteps.removeFirst() }
+        redoSteps.removeAll()
     }
+
+    private var textFieldHasFocus: Bool { NSApp.keyWindow?.firstResponder is NSTextView }
 
     /// ⌘Z. In a text field it undoes the typing; otherwise it takes back the last file operation.
     func undo() {
-        if NSApp.keyWindow?.firstResponder is NSTextView {
+        if textFieldHasFocus {
             NSApp.sendAction(Selector(("undo:")), to: nil, from: nil)
             return
         }
         guard let step = undoSteps.popLast() else { NSSound.beep(); return }
-        if let error = step.run() { alert = error }
+        if let error = step.undo() { alert = error } else { redoSteps.append(step) }
+        refresh()
+    }
+
+    /// ⇧⌘Z.
+    func redo() {
+        if textFieldHasFocus {
+            NSApp.sendAction(Selector(("redo:")), to: nil, from: nil)
+            return
+        }
+        guard let step = redoSteps.popLast() else { NSSound.beep(); return }
+        if let error = step.redo() { alert = error } else { undoSteps.append(step) }
         refresh()
     }
 
@@ -110,7 +127,8 @@ final class AppModel {
         let pane = active
         let url = FileTools.unique(pane.currentURL.appending(path: "untitled"))
         if FileManager.default.createFile(atPath: url.path, contents: nil) {
-            pushUndo("New File") { Self.trashUndo(url) }
+            let steps = Self.createdSteps(url)
+            pushUndo("New File", undo: steps.undo, redo: steps.redo)
             pane.load()
             let created = pane.items.filter { $0.name == url.lastPathComponent }.map(\.id)
             pane.selection = Set(created)
@@ -255,7 +273,8 @@ final class AppModel {
         do {
             let folderURL = pane.currentURL.appending(path: name)
             try FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: false)
-            pushUndo("New Folder") { Self.trashUndo(folderURL) }
+            let steps = Self.createdSteps(folderURL)
+            pushUndo("New Folder", undo: steps.undo, redo: steps.redo)
             refresh()
             let created = pane.items.filter { $0.name == name }.map(\.id)
             pane.selection = Set(created)
@@ -265,10 +284,23 @@ final class AppModel {
         }
     }
 
-    /// Undo of a created item: it goes to the Trash.
-    private static func trashUndo(_ url: URL) -> String? {
-        do { try FileManager.default.trashItem(at: url, resultingItemURL: nil); return nil }
-        catch { return error.localizedDescription }
+    /// Undo of a created item sends it to the Trash; redo takes it back out.
+    private static func createdSteps(_ url: URL) -> (undo: () -> String?, redo: () -> String?) {
+        var trashed: URL?
+        let undo: () -> String? = {
+            do {
+                var result: NSURL?
+                try FileManager.default.trashItem(at: url, resultingItemURL: &result)
+                trashed = result as URL?
+                return nil
+            } catch { return error.localizedDescription }
+        }
+        let redo: () -> String? = {
+            guard let t = trashed else { return "Nothing to redo." }
+            do { try FileManager.default.moveItem(at: t, to: url); return nil }
+            catch { return error.localizedDescription }
+        }
+        return (undo, redo)
     }
 
     func trash(_ urls: Set<URL>) {
@@ -282,7 +314,7 @@ final class AppModel {
             } catch { failed.append("\(url.lastPathComponent): \(error.localizedDescription)") }
         }
         if !moved.isEmpty {
-            pushUndo(moved.count == 1 ? "Move to Trash" : "Move to Trash (\(moved.count) items)") {
+            pushUndo(moved.count == 1 ? "Move to Trash" : "Move to Trash (\(moved.count) items)", undo: {
                 var errors: [String] = []
                 for m in moved {
                     if FileManager.default.fileExists(atPath: m.original.path) {
@@ -293,7 +325,17 @@ final class AppModel {
                     catch { errors.append("\(m.original.lastPathComponent): \(error.localizedDescription)") }
                 }
                 return errors.isEmpty ? nil : errors.joined(separator: "\n")
-            }
+            }, redo: {
+                var errors: [String] = []
+                for i in moved.indices {
+                    do {
+                        var result: NSURL?
+                        try FileManager.default.trashItem(at: moved[i].original, resultingItemURL: &result)
+                        if let result { moved[i].trashed = result as URL }
+                    } catch { errors.append("\(moved[i].original.lastPathComponent): \(error.localizedDescription)") }
+                }
+                return errors.isEmpty ? nil : errors.joined(separator: "\n")
+            })
         }
         refresh()
         if !failed.isEmpty { alert = failed.joined(separator: "\n") }
@@ -328,10 +370,13 @@ final class AppModel {
         do {
             try Self.moveViaTemps(moves)
             if !moves.isEmpty {
-                pushUndo("Rename") {
+                pushUndo("Rename", undo: {
                     do { try Self.moveViaTemps(moves.map { (from: $0.to, to: $0.from) }); return nil }
                     catch { return error.localizedDescription }
-                }
+                }, redo: {
+                    do { try Self.moveViaTemps(moves); return nil }
+                    catch { return error.localizedDescription }
+                })
             }
         } catch {
             alert = "Rename failed: \(error.localizedDescription)"
@@ -352,11 +397,15 @@ final class AppModel {
         }
         do {
             try FileManager.default.moveItem(at: url, to: dest)
-            pushUndo("Rename") {
+            pushUndo("Rename", undo: {
                 if FileManager.default.fileExists(atPath: url.path) { return "\"\(url.lastPathComponent)\" already exists." }
                 do { try FileManager.default.moveItem(at: dest, to: url); return nil }
                 catch { return error.localizedDescription }
-            }
+            }, redo: {
+                if FileManager.default.fileExists(atPath: dest.path) { return "\"\(dest.lastPathComponent)\" already exists." }
+                do { try FileManager.default.moveItem(at: url, to: dest); return nil }
+                catch { return error.localizedDescription }
+            })
             refresh()
         } catch {
             alert = error.localizedDescription
