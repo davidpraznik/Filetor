@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct Place: Identifiable, Hashable {
     let name: String
@@ -22,6 +23,82 @@ struct SidebarView: View {
         var set = Set(collapsedRaw.split(separator: ",").map(String.init))
         if set.contains(title) { set.remove(title) } else { set.insert(title) }
         collapsedRaw = set.joined(separator: ",")
+    }
+
+    @AppStorage("sidebarOrder") private var orderRaw = "Devices,Cloud,Shared,Favorites"
+    @State private var draggingSection: String?
+    /// Order while dragging; a plain @State so moves animate (the saved order follows).
+    @State private var liveOrder: [String]?
+    @State private var draggingFavorite: URL?
+
+    private static let allSections = ["Devices", "Cloud", "Shared", "Favorites"]
+
+    /// Saved section order; unknown names are dropped and missing ones appended.
+    private var order: [String] {
+        if let liveOrder { return liveOrder }
+        var out: [String] = []
+        for t in orderRaw.split(separator: ",").map(String.init) where Self.allSections.contains(t) && !out.contains(t) { out.append(t) }
+        for t in Self.allSections where !out.contains(t) { out.append(t) }
+        return out
+    }
+
+    /// Moves a section to the position of `target` (below it when dragged downwards, above it when dragged upwards).
+    private func moveSection(_ title: String, onto target: String) {
+        var o = order
+        guard let from = o.firstIndex(of: title), let to = o.firstIndex(of: target), from != to else { return }
+        o.remove(at: from)
+        o.insert(title, at: to)
+        liveOrder = o
+        orderRaw = o.joined(separator: ",")
+    }
+
+    /// Clears the drag state once the mouse button is released, also when the drag is cancelled.
+    private func watchDragEnd() {
+        Task { @MainActor in
+            while NSEvent.pressedMouseButtons != 0 { try? await Task.sleep(for: .milliseconds(100)) }
+            try? await Task.sleep(for: .milliseconds(150))
+            draggingSection = nil
+            draggingFavorite = nil
+        }
+    }
+
+    private func dragCard(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 13 * s, weight: .semibold))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8 * s)
+            .frame(width: 200 * s, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 10).fill(.regularMaterial))
+    }
+
+    private func sectionDelegate(_ title: String, urls: Bool = false) -> SectionDropDelegate {
+        SectionDropDelegate(
+            title: title,
+            dragging: $draggingSection,
+            draggingFavorite: draggingFavorite,
+            acceptsURLs: urls,
+            move: { from, to in moveSection(from, onto: to) },
+            addURLs: { app.favorites.insert($0, before: nil) }
+        )
+    }
+
+    @ViewBuilder private func sectionView(_ title: String) -> some View {
+        switch title {
+        case "Devices":
+            section("Devices", devices, ejectable: true)
+                .onDrop(of: [.text], delegate: sectionDelegate("Devices"))
+        case "Cloud":
+            if !cloud.isEmpty {
+                section("Cloud", cloud)
+                    .onDrop(of: [.text], delegate: sectionDelegate("Cloud"))
+            }
+        case "Shared":
+            shared
+                .onDrop(of: [.text], delegate: sectionDelegate("Shared"))
+        default:
+            section("Favorites", favorites, isFavorites: true)
+                .onDrop(of: [.text, .fileURL], delegate: sectionDelegate("Favorites", urls: true))
+        }
     }
 
     @State private var tick = 0
@@ -68,14 +145,9 @@ struct SidebarView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14 * s) {
                 dropStack
-                section("Devices", devices, ejectable: true)
-                if !cloud.isEmpty { section("Cloud", cloud) }
-                shared
-                section("Favorites", favorites, isFavorites: true)
-                    .dropDestination(for: URL.self) { urls, _ in
-                        app.favorites.insert(urls, before: nil)
-                        return true
-                    }
+                ForEach(order, id: \.self) { title in
+                    sectionView(title)
+                }
             }
             .padding(.horizontal, 10)
             .padding(.top, 4)
@@ -103,6 +175,13 @@ struct SidebarView: View {
         .padding(.bottom, 2 * s)
         .contentShape(Rectangle())
         .onTapGesture { withAnimation(.easeInOut(duration: 0.15)) { toggleCollapsed(title) } }
+        .onDrag {
+            draggingSection = title
+            watchDragEnd()
+            return NSItemProvider(object: title as NSString)
+        } preview: {
+            dragCard(title)
+        }
     }
 
     private func section(_ title: String, _ places: [Place], ejectable: Bool = false, isFavorites: Bool = false) -> some View {
@@ -135,7 +214,8 @@ struct SidebarView: View {
                 .background(RoundedRectangle(cornerRadius: 7).fill(on ? Color.primary.opacity(0.09) : Color.clear))
                 .contentShape(Rectangle())
                 .onTapGesture { selection = p.url }
-                .modifier(FavoriteRowModifier(enabled: isFavorites, url: p.url, app: app))
+                .modifier(FavoriteRowModifier(enabled: isFavorites, url: p.url, app: app, dragging: $draggingFavorite,
+                                              card: dragCard(p.name), onDragStart: watchDragEnd))
             }
         }
     }
@@ -226,25 +306,99 @@ struct SidebarView: View {
     }
 }
 
-/// Drag to reorder, drop folders to add, right-click to remove (Favorites only).
-struct FavoriteRowModifier: ViewModifier {
+/// Drag to reorder (live, with animation), drop folders to add, right-click to remove (Favorites only).
+struct FavoriteRowModifier<Card: View>: ViewModifier {
     let enabled: Bool
     let url: URL
     let app: AppModel
+    @Binding var dragging: URL?
+    let card: Card
+    let onDragStart: () -> Void
 
     func body(content: Content) -> some View {
         if enabled {
             content
-                .draggable(url)
-                .dropDestination(for: URL.self) { urls, _ in
-                    app.favorites.insert(urls, before: url)
-                    return true
+                .onDrag {
+                    dragging = url
+                    onDragStart()
+                    return NSItemProvider(object: url as NSURL)
+                } preview: {
+                    card
                 }
+                .onDrop(of: [.fileURL], delegate: FavoriteRowDropDelegate(url: url, dragging: $dragging, app: app))
                 .contextMenu {
                     Button("Remove from Favorites") { app.favorites.remove(url) }
                 }
         } else {
             content
         }
+    }
+}
+
+/// Reads file URLs from a drop and hands each one over on the main actor.
+@MainActor
+func loadDroppedURLs(_ info: DropInfo, _ completion: @escaping @MainActor ([URL]) -> Void) {
+    for provider in info.itemProviders(for: [.fileURL]) {
+        _ = provider.loadObject(ofClass: URL.self) { url, _ in
+            guard let url else { return }
+            Task { @MainActor in completion([url]) }
+        }
+    }
+}
+
+/// Dropping on a Favorites row: a favorite being moved slides into place (move cursor, no plus);
+/// folders from a file list are added before the row (plus cursor).
+struct FavoriteRowDropDelegate: DropDelegate {
+    let url: URL
+    @Binding var dragging: URL?
+    let app: AppModel
+
+    func validateDrop(info: DropInfo) -> Bool { info.hasItemsConforming(to: [.fileURL]) }
+
+    func dropEntered(info: DropInfo) {
+        guard let d = dragging, d != url else { return }
+        withAnimation(.easeInOut(duration: 0.22)) { app.favorites.move(d, onto: url) }
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: dragging != nil ? .move : .copy)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        if dragging != nil { dragging = nil; return true }
+        loadDroppedURLs(info) { [app, url] urls in app.favorites.insert(urls, before: url) }
+        return true
+    }
+}
+
+/// Dropping on a sidebar section: a dragged section slides into place (move cursor);
+/// on Favorites, folders from a file list are added at the end.
+struct SectionDropDelegate: DropDelegate {
+    let title: String
+    @Binding var dragging: String?
+    let draggingFavorite: URL?
+    let acceptsURLs: Bool
+    let move: (String, String) -> Void
+    let addURLs: @MainActor ([URL]) -> Void
+
+    func validateDrop(info: DropInfo) -> Bool {
+        dragging != nil || (acceptsURLs && info.hasItemsConforming(to: [.fileURL]))
+    }
+
+    func dropEntered(info: DropInfo) {
+        guard let d = dragging, d != title else { return }
+        withAnimation(.easeInOut(duration: 0.22)) { move(d, title) }
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: (dragging != nil || draggingFavorite != nil) ? .move : .copy)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        if dragging != nil { dragging = nil; return true }
+        if draggingFavorite != nil { return true }
+        guard acceptsURLs else { return false }
+        loadDroppedURLs(info, addURLs)
+        return true
     }
 }

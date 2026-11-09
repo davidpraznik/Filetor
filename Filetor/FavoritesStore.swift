@@ -41,6 +41,14 @@ final class FavoritesStore {
         save()
     }
 
+    /// Moves a favorite to the position of `target`, used while dragging to reorder.
+    func move(_ url: URL, onto target: URL) {
+        guard let from = urls.firstIndex(of: url), let to = urls.firstIndex(of: target), from != to else { return }
+        urls.remove(at: from)
+        urls.insert(url, at: to)
+        save()
+    }
+
     func remove(_ url: URL) {
         urls.removeAll { $0 == url }
         save()
