@@ -493,3 +493,50 @@ struct SyncContent: View {
         .frame(width: 860 * s)
     }
 }
+
+// MARK: - Undo for copy and move
+
+extension AppModel {
+    func recordTransferUndo(move: Bool, records: [TransferRecord]) {
+        guard !records.isEmpty else { return }
+        let fm = FileManager.default
+        let verb = move ? "Move" : "Copy"
+        let title = records.count == 1 ? "\(verb) \"\(records[0].dst.lastPathComponent)\"" : "\(verb) \(records.count) items"
+        var recs = records
+
+        pushUndo(title, undo: {
+            var errors: [String] = []
+            for r in recs.reversed() {
+                do {
+                    if r.moved {
+                        if fm.fileExists(atPath: r.src.path) {
+                            errors.append("\"\(r.src.lastPathComponent)\" already exists.")
+                            continue
+                        }
+                        try fm.createDirectory(at: r.src.deletingLastPathComponent(), withIntermediateDirectories: true)
+                        try fm.moveItem(at: r.dst, to: r.src)
+                    } else {
+                        try fm.trashItem(at: r.dst, resultingItemURL: nil)
+                    }
+                    if let t = r.trashed { try fm.moveItem(at: t, to: r.dst) }
+                } catch { errors.append("\(r.dst.lastPathComponent): \(error.localizedDescription)") }
+            }
+            return errors.isEmpty ? nil : errors.joined(separator: "\n")
+        }, redo: {
+            var errors: [String] = []
+            for i in recs.indices {
+                let r = recs[i]
+                do {
+                    recs[i].trashed = nil
+                    if fm.fileExists(atPath: r.dst.path) {
+                        var result: NSURL?
+                        try fm.trashItem(at: r.dst, resultingItemURL: &result)
+                        recs[i].trashed = result as URL?
+                    }
+                    if r.moved { try fm.moveItem(at: r.src, to: r.dst) } else { try fm.copyItem(at: r.src, to: r.dst) }
+                } catch { errors.append("\(r.dst.lastPathComponent): \(error.localizedDescription)") }
+            }
+            return errors.isEmpty ? nil : errors.joined(separator: "\n")
+        })
+    }
+}

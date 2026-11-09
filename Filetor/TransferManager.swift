@@ -30,6 +30,7 @@ final class TransferManager {
 
     var onFinished: (() -> Void)?
     var onError: ((String) -> Void)?
+    var onCompleted: ((_ move: Bool, _ records: [TransferRecord]) -> Void)?
 
     var pending: ConflictRequest? { queue.first }
     var hasActive: Bool { jobs.contains { !$0.isFinished } }
@@ -68,6 +69,7 @@ final class TransferManager {
             job.fraction = 1
             job.isFinished = true
             self?.onFinished?()
+            if !engine.records.isEmpty { self?.onCompleted?(move, engine.records) }
             if !failures.isEmpty {
                 self?.onError?(failures.joined(separator: "\n"))
             }

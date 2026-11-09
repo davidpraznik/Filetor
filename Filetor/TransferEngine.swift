@@ -56,11 +56,22 @@ nonisolated private final class CopyContext {
 
 // MARK: - Engine
 
+/// One finished copy or move, kept so it can be undone.
+nonisolated struct TransferRecord: Sendable {
+    let src: URL
+    let dst: URL
+    let moved: Bool
+    /// Where the item that was replaced at `dst` ended up in the Trash (nil when nothing was replaced).
+    var trashed: URL?
+}
+
 nonisolated final class TransferEngine: @unchecked Sendable {
     private let move: Bool
     private let control: TransferControl
     private let ask: @Sendable (ConflictInfo) async -> ConflictAnswer
     private var sticky: ConflictChoice?
+    /// Everything that was copied or moved so far (read after `run` has finished).
+    private(set) var records: [TransferRecord] = []
     private let fm = FileManager.default
 
     init(move: Bool,
@@ -155,15 +166,20 @@ nonisolated final class TransferEngine: @unchecked Sendable {
                 try? fm.removeItem(at: tmp)
                 throw error
             }
+            var trashedURL: URL?
             do {
-                try fm.trashItem(at: dst, resultingItemURL: nil)
+                var result: NSURL?
+                try fm.trashItem(at: dst, resultingItemURL: &result)
+                trashedURL = result as URL?
                 try fm.moveItem(at: tmp, to: dst)
             } catch {
                 // No Trash available (for example a network volume): swap in place.
                 _ = try fm.replaceItemAt(dst, withItemAt: tmp)
             }
+            records.append(TransferRecord(src: src, dst: dst, moved: move, trashed: trashedURL))
         } else {
             try doTransfer(src, to: dst)
+            records.append(TransferRecord(src: src, dst: dst, moved: move, trashed: nil))
         }
     }
 

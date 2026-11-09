@@ -114,6 +114,7 @@ final class AppModel {
     init() {
         transfers.onFinished = { [weak self] in self?.refresh() }
         transfers.onError = { [weak self] message in self?.alert = message }
+        transfers.onCompleted = { [weak self] move, records in self?.recordTransferUndo(move: move, records: records) }
         restoreSession()
         for name in [NSApplication.willTerminateNotification, NSApplication.didResignActiveNotification] {
             NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
