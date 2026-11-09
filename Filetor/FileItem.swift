@@ -7,6 +7,8 @@ struct FileItem: Identifiable, Hashable {
     var size: Int64
     /// True once the total size of a folder has been calculated.
     var sizeCalculated = false
+    /// Folder of a recursive search result, relative to the searched folder (empty otherwise).
+    var folder = ""
     let modified: Date
     let kind: String
     let created: Date

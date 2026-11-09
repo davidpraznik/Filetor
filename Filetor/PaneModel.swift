@@ -11,7 +11,19 @@ final class PaneModel: Identifiable {
         KeyPathComparator(\FileItem.name, comparator: .localizedStandard)
     ]
     var errorMessage: String?
-    var filter = ""
+    var filter = "" { didSet { if searchSubfolders { restartSearch() } } }
+    /// Search the filter text in all subfolders instead of only filtering the current folder.
+    var searchSubfolders = UserDefaults.standard.bool(forKey: "searchSubfolders") {
+        didSet {
+            UserDefaults.standard.set(searchSubfolders, forKey: "searchSubfolders")
+            restartSearch()
+        }
+    }
+    var searchResults: [FileItem] = []
+    var searching = false
+    var foldersScanned = 0
+    @ObservationIgnored private var searchTask: Task<Void, Never>?
+    var searchActive: Bool { searchSubfolders && !filter.isEmpty }
     /// 0 = list, 1 = icons, 2 = columns (columns not built yet, shows the list)
     var viewMode = 0
     var showHidden = UserDefaults.standard.bool(forKey: "showHidden")
@@ -24,7 +36,8 @@ final class PaneModel: Identifiable {
     var canGoUp: Bool { currentURL.path != "/" }
 
     var sortedItems: [FileItem] {
-        let visible = filter.isEmpty ? items : items.filter { $0.name.localizedCaseInsensitiveContains(filter) }
+        let visible = searchActive ? searchResults
+            : filter.isEmpty ? items : items.filter { $0.name.localizedCaseInsensitiveContains(filter) }
         let sorted = visible.sorted(using: sortOrder)
         let foldersFirst = UserDefaults.standard.object(forKey: "foldersFirst") as? Bool ?? true
         guard foldersFirst else { return sorted }
@@ -119,7 +132,73 @@ final class PaneModel: Identifiable {
             errorMessage = error.localizedDescription
         }
         startFolderSizes()
-        if !keepSelection { startWatching() }
+        if !keepSelection { startWatching(); if searchActive { restartSearch() } }
+    }
+
+    // MARK: Search in subfolders
+
+    func stopSearch() {
+        searchTask?.cancel()
+        searching = false
+    }
+
+    func restartSearch() {
+        searchTask?.cancel()
+        searchResults = []
+        foldersScanned = 0
+        guard searchActive else { searching = false; return }
+        searching = true
+        let root = currentURL.standardizedFileURL
+        let query = filter
+        let hidden = showHidden
+        let stream = AsyncStream<SearchBatch> { cont in
+            let worker = Task.detached(priority: .userInitiated) {
+                Self.scan(root: root, query: query, hidden: hidden, into: cont)
+                cont.finish()
+            }
+            cont.onTermination = { _ in worker.cancel() }
+        }
+        searchTask = Task { [weak self] in
+            for await batch in stream {
+                guard let self, !Task.isCancelled else { return }
+                let rootPath = root.path
+                self.searchResults.append(contentsOf: batch.urls.map { url in
+                    var item = FileItem(url: url)
+                    let parent = url.deletingLastPathComponent().path
+                    item.folder = parent == rootPath ? "" : String(parent.dropFirst(rootPath.count + 1))
+                    return item
+                })
+                self.foldersScanned = batch.folders
+            }
+            guard !Task.isCancelled else { return }
+            self?.searching = false
+        }
+    }
+
+    nonisolated private static func scan(root: URL, query: String, hidden: Bool, into cont: AsyncStream<SearchBatch>.Continuation) {
+        var options: FileManager.DirectoryEnumerationOptions = [.skipsPackageDescendants]
+        if !hidden { options.insert(.skipsHiddenFiles) }
+        guard let en = FileManager.default.enumerator(
+            at: root, includingPropertiesForKeys: [.isDirectoryKey], options: options) else { return }
+        var batch: [URL] = []
+        var folders = 0
+        var found = 0
+        var last = Date()
+        while let url = en.nextObject() as? URL {
+            if Task.isCancelled { return }
+            if (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true { folders += 1 }
+            if url.lastPathComponent.localizedCaseInsensitiveContains(query) {
+                batch.append(url)
+                found += 1
+                if found >= 5000 { break }
+            }
+            if Date().timeIntervalSince(last) > 0.15 {
+                cont.yield(SearchBatch(urls: batch, folders: folders))
+                batch = []
+                last = Date()
+            }
+        }
+        cont.yield(SearchBatch(urls: batch, folders: folders))
     }
 
     // MARK: Watching the folder for changes made outside the app
@@ -185,4 +264,9 @@ final class PaneModel: Identifiable {
             }
         }
     }
+}
+
+nonisolated struct SearchBatch: Sendable {
+    var urls: [URL]
+    var folders: Int
 }

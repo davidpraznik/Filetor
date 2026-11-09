@@ -207,7 +207,7 @@ struct CustomToolbar: View {
         case "search":
             @Bindable var pane = app.active
             VStack(spacing: 3) {
-                FilterField(text: $pane.filter, focusTrigger: app.focusSearch)
+                FilterField(text: $pane.filter, subfolders: $pane.searchSubfolders, focusTrigger: app.focusSearch)
                     .onAppear { app.searchFieldVisible = true; app.showFilterBar = false }
                     .onDisappear { app.searchFieldVisible = false }
                 if model.showLabels {
@@ -276,6 +276,7 @@ struct TransferButton: View {
 
 struct FilterField: View {
     @Binding var text: String
+    var subfolders: Binding<Bool>?
     var focusTrigger = 0
     @AppStorage("textSize") private var textSize = 1
     @FocusState private var focused: Bool
@@ -291,6 +292,14 @@ struct FilterField: View {
                 Button { text = "" } label: { Image(systemName: "xmark.circle.fill") }
                     .buttonStyle(.plain)
                     .foregroundStyle(.secondary)
+            }
+            if let subfolders {
+                Button { subfolders.wrappedValue.toggle() } label: {
+                    Image(systemName: subfolders.wrappedValue ? "folder.fill" : "folder")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(subfolders.wrappedValue ? Color.filetor : Color.secondary)
+                .help(subfolders.wrappedValue ? "Searching subfolders" : "Search subfolders")
             }
         }
         .font(.system(size: 12.5 * s))

@@ -12,6 +12,7 @@ struct FileTableView: NSViewRepresentable {
     let scale: CGFloat
     let striped: Bool
     let compact: Bool
+    var showFolder = false
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -44,6 +45,7 @@ struct FileTableView: NSViewRepresentable {
             table.addTableColumn(col)
         }
         add("name", "Name", 320, min: 140)
+        add("folder", "Folder", 200, min: 80)
         add("modified", "Date Modified", 150, min: 100)
         add("created", "Date Created", 150, min: 100)
         add("lastOpened", "Date Last Opened", 160, min: 100)
@@ -102,6 +104,10 @@ struct FileTableView: NSViewRepresentable {
                 table.sortDescriptors = [NSSortDescriptor(key: key, ascending: asc)]
             }
         }
+        if let fc = table.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier("folder")), fc.isHidden == showFolder {
+            fc.isHidden = !showFolder
+            c.fillWidth()
+        }
         if itemsChanged || settingsChanged { table.reloadData() }
         // Rename happens in the row. Only the pane that holds the item starts it (the active one when both do).
         if let target = app.renameTarget, !c.renaming, items.contains(where: { $0.url == target }),
@@ -150,6 +156,7 @@ struct FileTableView: NSViewRepresentable {
             if c.keyPath == \FileItem.added as PartialKeyPath<FileItem> { return "added" }
             if c.keyPath == \FileItem.size as PartialKeyPath<FileItem> { return "size" }
             if c.keyPath == \FileItem.kind as PartialKeyPath<FileItem> { return "kind" }
+            if c.keyPath == \FileItem.folder as PartialKeyPath<FileItem> { return "folder" }
             return "name"
         }
 
@@ -290,6 +297,11 @@ struct FileTableView: NSViewRepresentable {
                 text.textColor = .secondaryLabelColor
                 text.alignment = .right
                 pin(text, in: cell)
+            case "folder":
+                text.stringValue = item.folder
+                text.textColor = .secondaryLabelColor
+                text.lineBreakMode = .byTruncatingHead
+                pin(text, in: cell)
             case "modified", "created", "lastOpened", "added":
                 let d = id.rawValue == "modified" ? item.modified : id.rawValue == "created" ? item.created
                     : id.rawValue == "added" ? item.added : item.lastOpened
@@ -340,6 +352,7 @@ struct FileTableView: NSViewRepresentable {
             case "added": comparator = KeyPathComparator(\FileItem.added, order: order)
             case "size": comparator = KeyPathComparator(\FileItem.size, order: order)
             case "kind": comparator = KeyPathComparator(\FileItem.kind, comparator: .localizedStandard, order: order)
+            case "folder": comparator = KeyPathComparator(\FileItem.folder, comparator: .localizedStandard, order: order)
             default: comparator = KeyPathComparator(\FileItem.name, comparator: .localizedStandard, order: order)
             }
             parent.pane.sortOrder = [comparator]
@@ -495,6 +508,15 @@ struct FileTableView: NSViewRepresentable {
                 menu.addItem(.separator())
                 menu.addItem(item("Add to Favorites") { [weak self] in
                     self?.parent.app.favorites.insert(Array(folders), before: nil)
+                })
+            }
+            if parent.pane.searchActive, urls.count == 1, let url = urls.first {
+                menu.addItem(.separator())
+                menu.addItem(item("Show in Folder") { [weak self] in
+                    guard let pane = self?.parent.pane else { return }
+                    pane.filter = ""
+                    pane.navigate(to: url.deletingLastPathComponent())
+                    pane.selection = [url]
                 })
             }
             menu.addItem(.separator())

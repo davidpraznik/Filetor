@@ -22,14 +22,20 @@ struct FileListView: View {
                 Divider()
             }
             table
-            if statusBar {
+            if statusBar || pane.searchActive {
                 Divider()
-                Text(statusText)
-                    .font(.system(size: 13 * scale))
-                    .foregroundStyle(Color.primary.opacity(0.55))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 7 * scale)
-                    .background(isActive ? Color.filetor.opacity(0.16) : Color.primary.opacity(0.025))
+                HStack(spacing: 10) {
+                    if pane.searching { ProgressView().controlSize(.small) }
+                    Text(statusText)
+                    if pane.searching {
+                        Button("Stop") { pane.stopSearch() }.controlSize(.small)
+                    }
+                }
+                .font(.system(size: 13 * scale))
+                .foregroundStyle(Color.primary.opacity(0.55))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 7 * scale)
+                .background(isActive ? Color.filetor.opacity(0.16) : Color.primary.opacity(0.025))
             }
         }
     }
@@ -53,7 +59,8 @@ struct FileListView: View {
             sortOrder: pane.sortOrder,
             scale: scale,
             striped: striped,
-            compact: compactRows
+            compact: compactRows,
+            showFolder: pane.searchActive
         )
         .overlay {
             if let msg = pane.errorMessage {
@@ -69,6 +76,12 @@ struct FileListView: View {
     }
 
     private var statusText: String {
+        if pane.searchActive {
+            let n = pane.searchResults.count
+            let results = n == 1 ? "1 result" : "\(n) results"
+            let folders = pane.foldersScanned.formatted()
+            return pane.searching ? "\(results), searching (\(folders) folders)" : "\(results) in \(folders) folders"
+        }
         let total = pane.sortedItems.count
         let selected = pane.selection.count
         let items = total == 1 ? "1 item" : "\(total) items"
@@ -110,6 +123,13 @@ struct FilterBar: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 4 * scale)
             .background(Color.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 8))
+            Picker("", selection: $pane.searchSubfolders) {
+                Text("This folder").tag(false)
+                Text("Subfolders").tag(true)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .fixedSize()
             Button("Done") { close() }
                 .buttonStyle(.plain)
                 .foregroundStyle(Color.filetor)
