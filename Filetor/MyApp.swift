@@ -30,6 +30,12 @@ import SwiftUI
                     NSApp.orderFrontStandardAboutPanel(options: [.credits: credits])
                 }
             }
+            CommandGroup(replacing: .undoRedo) {
+                Button(app.undoTitle ?? "Undo") { app.undo() }
+                    .keyboardShortcut("z", modifiers: .command)
+                Button("Redo") { NSApp.sendAction(Selector(("redo:")), to: nil, from: nil) }
+                    .keyboardShortcut("z", modifiers: [.command, .shift])
+            }
             CommandGroup(replacing: .appSettings) {
                 Button("Settings…") { app.showSettings = true }
                     .keyboardShortcut(",", modifiers: .command)

@@ -1,6 +1,12 @@
 import SwiftUI
 import Observation
 
+/// One thing ⌘Z can take back. `run` returns an error message, or nil when it worked.
+struct UndoStep {
+    let title: String
+    let run: () -> String?
+}
+
 @Observable
 final class PaneGroup {
     var tabs: [PaneModel] = [PaneModel()]
@@ -57,6 +63,25 @@ final class AppModel {
     var report: Report?
     var renameTarget: URL?
     var renameText = ""
+    /// Steps that ⌘Z can undo (newest last).
+    private(set) var undoSteps: [UndoStep] = []
+    var undoTitle: String? { undoSteps.last.map { "Undo " + $0.title } }
+
+    func pushUndo(_ title: String, _ run: @escaping () -> String?) {
+        undoSteps.append(UndoStep(title: title, run: run))
+        if undoSteps.count > 50 { undoSteps.removeFirst() }
+    }
+
+    /// ⌘Z. In a text field it undoes the typing; otherwise it takes back the last file operation.
+    func undo() {
+        if NSApp.keyWindow?.firstResponder is NSTextView {
+            NSApp.sendAction(Selector(("undo:")), to: nil, from: nil)
+            return
+        }
+        guard let step = undoSteps.popLast() else { NSSound.beep(); return }
+        if let error = step.run() { alert = error }
+        refresh()
+    }
 
     init() {
         transfers.onFinished = { [weak self] in self?.refresh() }
@@ -85,6 +110,7 @@ final class AppModel {
         let pane = active
         let url = FileTools.unique(pane.currentURL.appending(path: "untitled"))
         if FileManager.default.createFile(atPath: url.path, contents: nil) {
+            pushUndo("New File") { Self.trashUndo(url) }
             pane.load()
             let created = pane.items.filter { $0.name == url.lastPathComponent }.map(\.id)
             pane.selection = Set(created)
@@ -227,8 +253,9 @@ final class AppModel {
             n += 1
         }
         do {
-            try FileManager.default.createDirectory(at: pane.currentURL.appending(path: name),
-                                                    withIntermediateDirectories: false)
+            let folderURL = pane.currentURL.appending(path: name)
+            try FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: false)
+            pushUndo("New Folder") { Self.trashUndo(folderURL) }
             refresh()
             let created = pane.items.filter { $0.name == name }.map(\.id)
             pane.selection = Set(created)
@@ -238,11 +265,35 @@ final class AppModel {
         }
     }
 
+    /// Undo of a created item: it goes to the Trash.
+    private static func trashUndo(_ url: URL) -> String? {
+        do { try FileManager.default.trashItem(at: url, resultingItemURL: nil); return nil }
+        catch { return error.localizedDescription }
+    }
+
     func trash(_ urls: Set<URL>) {
         var failed: [String] = []
+        var moved: [(original: URL, trashed: URL)] = []
         for url in urls {
-            do { try FileManager.default.trashItem(at: url, resultingItemURL: nil) }
-            catch { failed.append("\(url.lastPathComponent): \(error.localizedDescription)") }
+            do {
+                var result: NSURL?
+                try FileManager.default.trashItem(at: url, resultingItemURL: &result)
+                if let result { moved.append((original: url, trashed: result as URL)) }
+            } catch { failed.append("\(url.lastPathComponent): \(error.localizedDescription)") }
+        }
+        if !moved.isEmpty {
+            pushUndo(moved.count == 1 ? "Move to Trash" : "Move to Trash (\(moved.count) items)") {
+                var errors: [String] = []
+                for m in moved {
+                    if FileManager.default.fileExists(atPath: m.original.path) {
+                        errors.append("\"\(m.original.lastPathComponent)\" already exists.")
+                        continue
+                    }
+                    do { try FileManager.default.moveItem(at: m.trashed, to: m.original) }
+                    catch { errors.append("\(m.original.lastPathComponent): \(error.localizedDescription)") }
+                }
+                return errors.isEmpty ? nil : errors.joined(separator: "\n")
+            }
         }
         refresh()
         if !failed.isEmpty { alert = failed.joined(separator: "\n") }
@@ -259,16 +310,29 @@ final class AppModel {
     }
 
     /// Renames in two steps through temporary names, so swaps and shifted numbering never collide.
-    func applyBatchRename(_ pairs: [(URL, String)]) {
+    private static func moveViaTemps(_ moves: [(from: URL, to: URL)]) throws {
         let fm = FileManager.default
-        var temps: [(URL, URL)] = []
+        var temps: [(tmp: URL, final: URL)] = []
+        for m in moves {
+            let tmp = m.from.deletingLastPathComponent().appending(path: ".filetor-\(UUID().uuidString)")
+            try fm.moveItem(at: m.from, to: tmp)
+            temps.append((tmp: tmp, final: m.to))
+        }
+        for t in temps { try fm.moveItem(at: t.tmp, to: t.final) }
+    }
+
+    func applyBatchRename(_ pairs: [(URL, String)]) {
+        let moves = pairs
+            .filter { $0.1 != $0.0.lastPathComponent }
+            .map { (from: $0.0, to: $0.0.deletingLastPathComponent().appending(path: $0.1)) }
         do {
-            for (url, name) in pairs where name != url.lastPathComponent {
-                let tmp = url.deletingLastPathComponent().appending(path: ".filetor-\(UUID().uuidString)")
-                try fm.moveItem(at: url, to: tmp)
-                temps.append((tmp, url.deletingLastPathComponent().appending(path: name)))
+            try Self.moveViaTemps(moves)
+            if !moves.isEmpty {
+                pushUndo("Rename") {
+                    do { try Self.moveViaTemps(moves.map { (from: $0.to, to: $0.from) }); return nil }
+                    catch { return error.localizedDescription }
+                }
             }
-            for (tmp, final) in temps { try fm.moveItem(at: tmp, to: final) }
         } catch {
             alert = "Rename failed: \(error.localizedDescription)"
         }
@@ -288,6 +352,11 @@ final class AppModel {
         }
         do {
             try FileManager.default.moveItem(at: url, to: dest)
+            pushUndo("Rename") {
+                if FileManager.default.fileExists(atPath: url.path) { return "\"\(url.lastPathComponent)\" already exists." }
+                do { try FileManager.default.moveItem(at: dest, to: url); return nil }
+                catch { return error.localizedDescription }
+            }
             refresh()
         } catch {
             alert = error.localizedDescription
