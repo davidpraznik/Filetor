@@ -338,10 +338,11 @@ struct FavoriteRowModifier<Card: View>: ViewModifier {
 /// Reads file URLs from a drop and hands each one over on the main actor.
 @MainActor
 func loadDroppedURLs(_ info: DropInfo, _ completion: @escaping @MainActor ([URL]) -> Void) {
+    nonisolated(unsafe) let done = completion
     for provider in info.itemProviders(for: [.fileURL]) {
         _ = provider.loadObject(ofClass: URL.self) { url, _ in
             guard let url else { return }
-            Task { @MainActor in completion([url]) }
+            Task { @MainActor in done([url]) }
         }
     }
 }
