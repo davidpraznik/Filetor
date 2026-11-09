@@ -113,6 +113,43 @@ final class AppModel {
     init() {
         transfers.onFinished = { [weak self] in self?.refresh() }
         transfers.onError = { [weak self] message in self?.alert = message }
+        restoreSession()
+        for name in [NSApplication.willTerminateNotification, NSApplication.didResignActiveNotification] {
+            NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.saveSession() }
+            }
+        }
+    }
+
+    // MARK: Session restore
+
+    /// Saves the open folders and tabs of both panes (restored on next launch).
+    func saveSession() {
+        let data: [String: Any] = [
+            "tabs": groups.map { $0.tabs.map { $0.currentURL.path } },
+            "selected": groups.map(\.selected),
+            "active": activeIndex
+        ]
+        UserDefaults.standard.set(data, forKey: "session")
+    }
+
+    private func restoreSession() {
+        guard UserDefaults.standard.object(forKey: "restoreSession") as? Bool ?? true,
+              let data = UserDefaults.standard.dictionary(forKey: "session"),
+              let tabs = data["tabs"] as? [[String]],
+              tabs.count == groups.count else { return }
+        let selected = data["selected"] as? [Int] ?? []
+        for (i, paths) in tabs.enumerated() {
+            let urls = paths.map { URL(fileURLWithPath: $0, isDirectory: true) }.filter {
+                var isDir: ObjCBool = false
+                return FileManager.default.fileExists(atPath: $0.path, isDirectory: &isDir) && isDir.boolValue
+            }
+            guard !urls.isEmpty else { continue }
+            groups[i].tabs = urls.map { PaneModel(url: $0) }
+            let sel = i < selected.count ? selected[i] : 0
+            groups[i].selected = min(max(sel, 0), urls.count - 1)
+        }
+        if let a = data["active"] as? Int, groups.indices.contains(a) { activeIndex = a }
     }
 
     var activeGroup: PaneGroup { groups[activeIndex] }
