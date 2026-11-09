@@ -78,7 +78,7 @@ struct SidebarView: View {
             draggingFavorite: draggingFavorite,
             acceptsURLs: urls,
             move: { from, to in moveSection(from, onto: to) },
-            addURLs: { app.favorites.insert($0, before: nil) }
+            favorites: app.favorites
         )
     }
 
@@ -337,12 +337,11 @@ struct FavoriteRowModifier<Card: View>: ViewModifier {
 
 /// Reads file URLs from a drop and hands each one over on the main actor.
 @MainActor
-func loadDroppedURLs(_ info: DropInfo, _ completion: @escaping @MainActor ([URL]) -> Void) {
-    nonisolated(unsafe) let done = completion
+func addDroppedURLs(_ info: DropInfo, to store: FavoritesStore, before: URL?) {
     for provider in info.itemProviders(for: [.fileURL]) {
         _ = provider.loadObject(ofClass: URL.self) { url, _ in
             guard let url else { return }
-            Task { @MainActor in done([url]) }
+            Task { @MainActor in store.insert([url], before: before) }
         }
     }
 }
@@ -367,7 +366,7 @@ struct FavoriteRowDropDelegate: DropDelegate {
 
     func performDrop(info: DropInfo) -> Bool {
         if dragging != nil { dragging = nil; return true }
-        loadDroppedURLs(info) { [app, url] urls in app.favorites.insert(urls, before: url) }
+        addDroppedURLs(info, to: app.favorites, before: url)
         return true
     }
 }
@@ -380,7 +379,7 @@ struct SectionDropDelegate: DropDelegate {
     let draggingFavorite: URL?
     let acceptsURLs: Bool
     let move: (String, String) -> Void
-    let addURLs: @MainActor ([URL]) -> Void
+    let favorites: FavoritesStore
 
     func validateDrop(info: DropInfo) -> Bool {
         dragging != nil || (acceptsURLs && info.hasItemsConforming(to: [.fileURL]))
@@ -399,7 +398,7 @@ struct SectionDropDelegate: DropDelegate {
         if dragging != nil { dragging = nil; return true }
         if draggingFavorite != nil { return true }
         guard acceptsURLs else { return false }
-        loadDroppedURLs(info, addURLs)
+        addDroppedURLs(info, to: favorites, before: nil)
         return true
     }
 }
