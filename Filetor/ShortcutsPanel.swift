@@ -28,6 +28,8 @@ enum Shortcuts {
             ("Copy", "⌘ C"),
             ("Paste", "⌘ V"),
             ("Move to Trash", "⌘ ⌫"),
+            ("Undo", "⌘ Z"),
+            ("Redo", "⇧ ⌘ Z"),
             ("Quick Look", "Space"),
             ("Copy to Other Pane", "F5"),
             ("Move to Other Pane", "F6"),
@@ -42,6 +44,7 @@ enum Shortcuts {
             ("Convert Image", "—"),
             ("Find Duplicates", "—"),
             ("Compare Folders", "—"),
+            ("Synchronize", "—"),
         ]),
         ShortcutGroup(title: "View", entries: [
             ("Show or Hide Info Panel", "⌥ ⌘ I"),

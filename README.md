@@ -13,18 +13,24 @@ I made it for my own work, where I move and compare files between folders, disks
 **Browsing**
 - Two panes side by side, with tabs in each pane. Swap the panes or switch to a single pane.
 - List, icon and column views, a filter field and an info panel with details and a preview.
-- Sidebar with favorites, mounted disks (with eject), cloud storage (iCloud Drive, Google Drive, Dropbox, OneDrive) and network servers.
+- Search in subfolders: turn it on next to the filter field and the list shows matches from all subfolders, with a Folder column and a Stop button.
+- Open folders and tabs of both panes are restored when you start the app.
+- Sidebar with favorites, mounted disks (with eject), cloud storage (iCloud Drive, Google Drive, Dropbox, OneDrive) and network servers. Drag the sections to put them in your own order.
+- Right-click a folder in the path bar for the same actions as in the list.
 - Quick Look on the space bar.
 
 **Moving files**
 - Drag and drop between the panes, the sidebar and the Drop Stack. Copy by default, hold Command to move.
 - Copy to Other Pane, Move to Other Pane, Copy to… and Move to… with a progress indicator and conflict handling.
+- Undo and redo (⌘Z, ⇧⌘Z) for rename, move to Trash, new file or folder, copy and move.
+- Rename in the row, like in Finder.
 - Network servers (SMB and AFP) appear under Shared automatically. Connect to Server opens any address.
 
 **Tools Finder does not have**
 - Batch rename with a live preview: replace text, add text, numbering.
 - Find Duplicates in a folder, by size and then by checksum. Review the results and move the extra copies to the Trash.
 - Compare Folders: shows what is missing or different between the two panes, by name, size and date.
+- Synchronize: copies the differences between the two panes one way or both ways. You can change the direction of every file, newer files replace older ones, replaced files go to the Trash and nothing is deleted.
 - Touch: sets the modification date of the selected files to now.
 - Folder sizes: an option shows the size of every folder in the list, like Finder does (Settings > Rows).
 - Compress and Decompress, Copy Path, Reveal in Finder, Open in Terminal.
@@ -36,7 +42,7 @@ I made it for my own work, where I move and compare files between folders, disks
 **Actions and shortcuts**
 - ⌘K opens Actions: type a few letters and run any action.
 - ⌥⌘K shows all keyboard shortcuts in tabs at the bottom of the window.
-- ⌘F moves focus to the search field in the toolbar.
+- ⌘F moves focus to the search field in the toolbar. If the field is not in the toolbar, it opens a filter bar under the path bar.
 
 <p align="center">
   <img src="docs/filetor-shortcuts-v3.png" alt="Keyboard shortcuts panel in Filetor" width="100%">
