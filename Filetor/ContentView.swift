@@ -121,6 +121,9 @@ struct ContentView: View {
         .floatingPanel(isPresented: Binding(get: { model.report != nil }, set: { if !$0 { model.report = nil } })) {
             ReportPanel(app: app)
         }
+        .floatingPanel(isPresented: Binding(get: { model.sync != nil }, set: { if !$0 { model.sync = nil } })) {
+            SyncPanel(app: app)
+        }
         .floatingPanel(isPresented: $model.showCustomize) {
             CustomizeSheet(app: app)
         }

@@ -39,14 +39,14 @@ final class TransferManager {
         return active.map(\.fraction).reduce(0, +) / Double(active.count)
     }
 
-    func start(items: [(src: URL, dstDir: URL)], move: Bool) {
+    func start(items: [(src: URL, dstDir: URL)], move: Bool, conflict: ConflictChoice? = nil) {
         guard !items.isEmpty else { return }
         let verb = move ? "Moving" : "Copying"
         let title = items.count == 1 ? "\(verb) \(items[0].src.lastPathComponent)" : "\(verb) \(items.count) items"
         let job = TransferJob(title: title)
         jobs.append(job)
 
-        let engine = TransferEngine(move: move, control: job.control) { [weak self] info in
+        let engine = TransferEngine(move: move, control: job.control, preset: conflict) { [weak self] info in
             await self?.askUser(info) ?? ConflictAnswer(choice: .stop, applyToAll: false)
         }
         let pairs = items

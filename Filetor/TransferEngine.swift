@@ -65,7 +65,9 @@ nonisolated final class TransferEngine: @unchecked Sendable {
 
     init(move: Bool,
          control: TransferControl,
+         preset: ConflictChoice? = nil,
          ask: @escaping @Sendable (ConflictInfo) async -> ConflictAnswer) {
+        self.sticky = preset
         self.move = move
         self.control = control
         self.ask = ask

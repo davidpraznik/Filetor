@@ -110,6 +110,7 @@ import SwiftUI
                 Divider()
                 Button("Find Duplicates…") { app.findDuplicates() }
                 Button("Compare Folders…") { app.compareFolders() }
+                Button("Synchronize…") { app.synchronize() }
             }
             CommandGroup(replacing: .saveItem) {
                 Button("Close Tab") { app.closeTab() }

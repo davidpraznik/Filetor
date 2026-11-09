@@ -35,6 +35,7 @@ struct AppCommand: Identifiable {
         AppCommand(id: "toTIFF", title: "Convert Image to TIFF", isEnabled: hasImage) { $0.convertImages($0.active.selection, format: "tiff", ext: "tiff") },
         AppCommand(id: "dupes", title: "Find Duplicates…") { $0.findDuplicates() },
         AppCommand(id: "compare", title: "Compare Folders…") { $0.compareFolders() },
+        AppCommand(id: "sync", title: "Synchronize…") { $0.synchronize() },
         AppCommand(id: "connect", title: "Connect to Server…") { $0.showConnect = true },
         AppCommand(id: "copyPath", title: "Copy Path") { $0.copyPath() },
         AppCommand(id: "swap", title: "Swap Panes") { $0.swapPanes() },

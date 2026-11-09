@@ -72,6 +72,7 @@ final class AppModel {
     var alert: String?
     /// Result of Find Duplicates or Compare Folders.
     var report: Report?
+    var sync: SyncSession?
     var renameTarget: URL?
     var renameText = ""
     /// Steps that ⌘Z can undo, and steps that ⇧⌘Z can do again (newest last).

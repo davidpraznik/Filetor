@@ -217,6 +217,10 @@ struct ReportPanel: View {
                 .frame(height: 380 * s)
             }
             HStack {
+                if report?.title == "Compare Folders", report?.sections.isEmpty == false {
+                    Button("Synchronize…") { close(); app.synchronize() }
+                        .buttonStyle(PathsButtonStyle(scale: s, prominent: false))
+                }
                 Spacer()
                 Button("Done") { close() }
                     .buttonStyle(PathsButtonStyle(scale: s, prominent: true))
@@ -227,5 +231,265 @@ struct ReportPanel: View {
         .font(.system(size: 13 * s))
         .padding(28)
         .frame(width: 640 * s)
+    }
+}
+
+// MARK: - Synchronize
+
+nonisolated struct SyncSide: Sendable {
+    let url: URL
+    let size: Int64
+    let date: Date
+}
+
+nonisolated enum SyncAction: Sendable { case toRight, toLeft, skip }
+
+nonisolated enum SyncDirection: String, CaseIterable, Sendable {
+    case both = "Both ways", leftToRight = "Left to right", rightToLeft = "Right to left"
+}
+
+nonisolated struct SyncRow: Identifiable, Sendable {
+    let rel: String
+    let left: SyncSide?
+    let right: SyncSide?
+    var action: SyncAction = .skip
+    var id: String { rel }
+    var isOneSided: Bool { left == nil || right == nil }
+
+    func defaultAction(_ d: SyncDirection) -> SyncAction {
+        switch (left, right) {
+        case (.some, nil): return d == .rightToLeft ? .skip : .toRight
+        case (nil, .some): return d == .leftToRight ? .skip : .toLeft
+        case (let l?, let r?):
+            if abs(l.date.timeIntervalSince(r.date)) <= 2 { return .skip }
+            let leftNewer = l.date > r.date
+            switch d {
+            case .both: return leftNewer ? .toRight : .toLeft
+            case .leftToRight: return leftNewer ? .toRight : .skip
+            case .rightToLeft: return leftNewer ? .skip : .toLeft
+            }
+        default: return .skip
+        }
+    }
+
+    /// The actions a click on the pill cycles through.
+    var choices: [SyncAction] {
+        if left != nil && right != nil { return [.toRight, .toLeft, .skip] }
+        return left != nil ? [.toRight, .skip] : [.toLeft, .skip]
+    }
+}
+
+extension FolderAnalysis {
+    static func syncRows(_ leftRoot: URL, _ rightRoot: URL) -> [SyncRow] {
+        let l = scan(leftRoot), r = scan(rightRoot)
+        var rows: [SyncRow] = []
+        for rel in Set(l.keys).union(r.keys) {
+            let le = l[rel].map { SyncSide(url: $0.url, size: $0.size, date: $0.date) }
+            let re = r[rel].map { SyncSide(url: $0.url, size: $0.size, date: $0.date) }
+            if let a = le, let b = re, a.size == b.size, abs(a.date.timeIntervalSince(b.date)) <= 2 { continue }
+            rows.append(SyncRow(rel: rel, left: le, right: re))
+        }
+        return rows.sorted { $0.rel.localizedStandardCompare($1.rel) == .orderedAscending }
+    }
+}
+
+@Observable
+final class SyncSession {
+    let leftRoot: URL
+    let rightRoot: URL
+    var rows: [SyncRow] = []
+    var loading = true
+    var direction = SyncDirection.both
+
+    init(left: URL, right: URL) { leftRoot = left; rightRoot = right }
+
+    func applyDirection() {
+        for i in rows.indices { rows[i].action = rows[i].defaultAction(direction) }
+    }
+
+    func cycle(_ id: String) {
+        guard let i = rows.firstIndex(where: { $0.id == id }) else { return }
+        let c = rows[i].choices
+        let at = c.firstIndex(of: rows[i].action) ?? c.count - 1
+        rows[i].action = c[(at + 1) % c.count]
+    }
+
+    func count(_ a: SyncAction) -> Int { rows.filter { $0.action == a }.count }
+}
+
+extension AppModel {
+    func synchronize() {
+        guard dual else {
+            alert = "Open the second pane to synchronize folders."
+            return
+        }
+        let left = groups[0].current.currentURL, right = groups[1].current.currentURL
+        guard left.standardizedFileURL != right.standardizedFileURL else {
+            alert = "Both panes show the same folder."
+            return
+        }
+        let session = SyncSession(left: left, right: right)
+        sync = session
+        Task {
+            let rows = await Task.detached { FolderAnalysis.syncRows(left, right) }.value
+            guard sync === session else { return }
+            session.rows = rows
+            session.applyDirection()
+            session.loading = false
+        }
+    }
+
+    func runSync(_ session: SyncSession) {
+        func items(_ action: SyncAction) -> [(src: URL, dstDir: URL)] {
+            var out: [(src: URL, dstDir: URL)] = []
+            for row in session.rows where row.action == action {
+                guard let src = action == .toRight ? row.left?.url : row.right?.url else { continue }
+                let root = action == .toRight ? session.rightRoot : session.leftRoot
+                let dir = root.appending(path: row.rel).deletingLastPathComponent()
+                do { try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true) }
+                catch { alert = error.localizedDescription; continue }
+                out.append((src: src, dstDir: dir))
+            }
+            return out
+        }
+        let right = items(.toRight), left = items(.toLeft)
+        sync = nil
+        transfers.start(items: right, move: false, conflict: .replace)
+        transfers.start(items: left, move: false, conflict: .replace)
+    }
+}
+
+struct SyncPanel: View {
+    let app: AppModel
+    var body: some View {
+        if let session = app.sync { SyncContent(app: app, session: session) }
+    }
+}
+
+struct SyncContent: View {
+    let app: AppModel
+    @Bindable var session: SyncSession
+    @Environment(\.closePanel) private var close
+    @AppStorage("textSize") private var textSize = 1
+    private var s: CGFloat { UIScale.value(textSize) }
+
+    private func size(_ side: SyncSide?) -> String {
+        side.map { ByteCountFormatter.string(fromByteCount: $0.size, countStyle: .file) } ?? "--"
+    }
+    private func date(_ side: SyncSide?) -> String {
+        side.map { $0.date.formatted(.dateTime.day().month(.abbreviated).year()) } ?? "--"
+    }
+    private func arrow(_ a: SyncAction) -> String {
+        switch a {
+        case .toRight: return "→"
+        case .toLeft: return "←"
+        case .skip: return "Skip"
+        }
+    }
+
+    private func columns(_ path: some View, _ ls: some View, _ ld: some View, _ act: some View,
+                         _ rs: some View, _ rd: some View) -> some View {
+        HStack(spacing: 10) {
+            path.frame(maxWidth: .infinity, alignment: .leading)
+            ls.frame(width: 70 * s, alignment: .trailing)
+            ld.frame(width: 110 * s, alignment: .leading)
+            act.frame(width: 64 * s)
+            rs.frame(width: 70 * s, alignment: .trailing)
+            rd.frame(width: 110 * s, alignment: .leading)
+        }
+    }
+
+    private func section(_ title: String, _ rows: [SyncRow]) -> some View {
+        VStack(alignment: .leading, spacing: 2 * s) {
+            if !rows.isEmpty {
+                Text("\(title) (\(rows.count))").fontWeight(.semibold).padding(.vertical, 4 * s)
+                ForEach(rows) { row in
+                    columns(
+                        Text(row.rel).lineLimit(1).truncationMode(.middle),
+                        Text(size(row.left)),
+                        Text(date(row.left)).foregroundStyle(.secondary),
+                        Button { session.cycle(row.id) } label: {
+                            Text(arrow(row.action))
+                                .frame(minWidth: 52 * s)
+                                .padding(.vertical, 2 * s)
+                                .background(row.action == .skip ? Color.primary.opacity(0.07) : Color.filetor.opacity(0.16),
+                                            in: RoundedRectangle(cornerRadius: 7))
+                        }
+                        .buttonStyle(.plain),
+                        Text(size(row.right)),
+                        Text(date(row.right)).foregroundStyle(.secondary)
+                    )
+                    .font(.system(size: 12.5 * s))
+                }
+            }
+        }
+    }
+
+    var body: some View {
+        let toRight = session.count(.toRight), toLeft = session.count(.toLeft)
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Synchronize").font(.system(size: 22 * s))
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Left: \(session.leftRoot.path)")
+                Text("Right: \(session.rightRoot.path)")
+            }
+            .font(.system(size: 12.5 * s))
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .truncationMode(.middle)
+
+            HStack {
+                Text("Direction")
+                Picker("", selection: Binding(get: { session.direction },
+                                              set: { session.direction = $0; session.applyDirection() })) {
+                    ForEach(SyncDirection.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .fixedSize()
+            }
+
+            if session.loading {
+                HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Comparing…").foregroundStyle(.secondary) }
+                    .frame(maxWidth: .infinity, minHeight: 80 * s)
+            } else if session.rows.isEmpty {
+                Text("The folders are already in sync.").foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, minHeight: 80 * s)
+            } else {
+                columns(Text("Path"), Text("Left size"), Text("Left modified"), Text("Action"),
+                        Text("Right size"), Text("Right modified"))
+                    .font(.system(size: 12 * s))
+                    .foregroundStyle(.secondary)
+                Divider()
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 2 * s) {
+                        section("Only on one side", session.rows.filter(\.isOneSided))
+                        section("Different", session.rows.filter { !$0.isOneSided })
+                    }
+                }
+                .frame(height: 320 * s)
+                Text("Newer files replace older ones, and replaced files are moved to the Trash. Nothing is deleted.")
+                    .font(.system(size: 12 * s))
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack {
+                if !session.loading && !session.rows.isEmpty {
+                    Text("\(toRight) copy to the right, \(toLeft) copy to the left, \(session.count(.skip)) skipped")
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("Cancel") { close() }
+                    .buttonStyle(PathsButtonStyle(scale: s, prominent: false))
+                    .keyboardShortcut(.cancelAction)
+                Button("Synchronize") { app.runSync(session) }
+                    .buttonStyle(PathsButtonStyle(scale: s, prominent: true))
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(session.loading || toRight + toLeft == 0)
+            }
+        }
+        .font(.system(size: 13 * s))
+        .padding(28)
+        .frame(width: 860 * s)
     }
 }
