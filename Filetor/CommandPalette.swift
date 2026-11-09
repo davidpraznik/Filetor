@@ -40,7 +40,7 @@ struct AppCommand: Identifiable {
         AppCommand(id: "swap", title: "Swap Panes") { $0.swapPanes() },
         AppCommand(id: "reload", title: "Reload", keys: "⌥ ⌘ R") { $0.active.load() },
         AppCommand(id: "hidden", title: "Show or Hide Hidden Files", keys: "⇧ ⌘ .") { $0.active.toggleHidden() },
-        AppCommand(id: "search", title: "Search", keys: "⌘ F") { $0.focusSearch += 1 },
+        AppCommand(id: "search", title: "Search", keys: "⌘ F") { $0.activateSearch() },
         AppCommand(id: "newTab", title: "New Tab", keys: "⌘ T") { $0.newTab() },
         AppCommand(id: "closeTab", title: "Close Tab", keys: "⌘ W") { $0.closeTab() },
         AppCommand(id: "infoPanel", title: "Show or Hide Info Panel", keys: "⌥ ⌘ I") { $0.showInfo.toggle() },

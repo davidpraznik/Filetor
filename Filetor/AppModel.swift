@@ -46,6 +46,16 @@ final class AppModel {
     var showSettings = false
     var showShortcuts = false
     var focusSearch = 0
+    /// True while the toolbar Search field is on screen.
+    var searchFieldVisible = false
+    /// Fallback filter bar under the breadcrumbs (used when the toolbar has no Search field).
+    var showFilterBar = false
+    var filterBarFocus = 0
+
+    func activateSearch() {
+        if searchFieldVisible { focusSearch += 1 }
+        else { showFilterBar = true; filterBarFocus += 1 }
+    }
     var showPalette = false
     var showConnect = false
     let favorites = FavoritesStore()

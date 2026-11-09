@@ -208,6 +208,8 @@ struct CustomToolbar: View {
             @Bindable var pane = app.active
             VStack(spacing: 3) {
                 FilterField(text: $pane.filter, focusTrigger: app.focusSearch)
+                    .onAppear { app.searchFieldVisible = true; app.showFilterBar = false }
+                    .onDisappear { app.searchFieldVisible = false }
                 if model.showLabels {
                     Text("Search").font(.system(size: 10.5 * s)).foregroundStyle(.secondary)
                 }

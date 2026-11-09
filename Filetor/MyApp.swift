@@ -52,7 +52,7 @@ import SwiftUI
                     .keyboardShortcut("k", modifiers: [.command, .option])
                 Button("Actions…") { app.showPalette.toggle() }
                     .keyboardShortcut("k", modifiers: .command)
-                Button("Search") { app.focusSearch += 1 }
+                Button("Search") { app.activateSearch() }
                     .keyboardShortcut("f", modifiers: .command)
                 Button("Customize Toolbar…") { app.showCustomize = true }
                 Button("Restore Toolbar Defaults") { app.toolbarModel.restoreDefaults() }

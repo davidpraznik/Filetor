@@ -17,6 +17,10 @@ struct FileListView: View {
         VStack(spacing: 0) {
             BreadcrumbBar(pane: pane, app: app, onNewTab: onNewTab)
             Divider()
+            if app.showFilterBar && pane === app.active && !app.searchFieldVisible {
+                FilterBar(pane: pane, app: app, scale: scale)
+                Divider()
+            }
             table
             if statusBar {
                 Divider()
@@ -72,5 +76,48 @@ struct FileListView: View {
         let free = freeSpace
         if !free.isEmpty { text += ", " + free }
         return text
+    }
+}
+
+// MARK: - Filter bar (fallback when the toolbar has no Search field)
+
+struct FilterBar: View {
+    @Bindable var pane: PaneModel
+    let app: AppModel
+    let scale: CGFloat
+    @FocusState private var focused: Bool
+
+    private func close() {
+        pane.filter = ""
+        app.showFilterBar = false
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 4) {
+                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                TextField("Filter selected pane", text: $pane.filter)
+                    .textFieldStyle(.plain)
+                    .focused($focused)
+                    .onKeyPress(.escape) { close(); return .handled }
+                if !pane.filter.isEmpty {
+                    Button { pane.filter = "" } label: { Image(systemName: "xmark.circle.fill") }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .font(.system(size: 12.5 * scale))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4 * scale)
+            .background(Color.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 8))
+            Button("Done") { close() }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.filetor)
+                .font(.system(size: 12.5 * scale))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .onAppear { focused = true }
+        .onChange(of: app.filterBarFocus) { _, _ in focused = true }
     }
 }
