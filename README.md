@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/filetor-social-preview-v1.png" alt="Filetor, a dual-pane file manager for macOS" width="100%">
+  <img src="docs/filetor-social-preview-v2.png" alt="Filetor, a dual-pane file manager for macOS" width="100%">
 </p>
 
 # Filetor
