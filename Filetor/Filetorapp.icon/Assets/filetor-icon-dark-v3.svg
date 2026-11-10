@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>filetor-icon-dark-v3.svg</title>
+  <g id="Layer_1" data-name="Layer 1">
+    <path d="M228 0 L796 0 C921.921 0 1024 102.079 1024 228 L1024 796 C1024 921.921 921.921 1024 796 1024 L228 1024 C102.079 1024 0 921.921 0 796 L0 228 C0 102.079 102.079 0 228 0 Z" fill="#012244"/>
+    <path d="M232 82 L792 82 C874.843 82 942 149.157 942 232 L942 792 C942 874.843 874.843 942 792 942 L232 942 C149.157 942 82 874.843 82 792 L82 232 C82 149.157 149.157 82 232 82 Z" fill="#012244"/>
+    <path d="M670 82 L792 82 C874.843 82 942 149.157 942 232 L942 792 C942 874.843 874.843 942 792 942 L530 942 C474.772 942 430 897.228 430 842 L430 800 C430 535 570 535 570 270 L570 182 C570 126.772 614.772 82 670 82 Z" fill="#0683ff"/>
+    <g>
+      <path d="M774.5 366 L250.5 366 M345.5 271 L250.5 366 L345.5 461" fill="none" stroke="#fcfeff" stroke-width="63" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M250.5 658 L774.5 658 M679.5 563 L774.5 658 L679.5 753" fill="none" stroke="#fcfeff" stroke-width="63" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+</svg>
