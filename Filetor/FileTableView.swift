@@ -38,7 +38,7 @@ struct FileTableView: NSViewRepresentable {
         func add(_ id: String, _ title: String, _ width: CGFloat, min: CGFloat, right: Bool = false) {
             let col = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(id))
             col.title = title
-            col.width = width
+            col.width = Coordinator.savedWidth(id) ?? width
             col.minWidth = min
             col.sortDescriptorPrototype = NSSortDescriptor(key: id, ascending: true)
             col.headerCell.alignment = right ? .right : .left
@@ -57,6 +57,8 @@ struct FileTableView: NSViewRepresentable {
         table.allowsColumnResizing = true
         // User resizing only: an autoresizing Name column would absorb every widening and keep the table locked to the visible width.
         for col in table.tableColumns { col.resizingMask = .userResizingMask }
+
+        NotificationCenter.default.addObserver(c, selector: #selector(Coordinator.columnResized(_:)), name: NSTableView.columnDidResizeNotification, object: table)
 
         let menu = NSMenu()
         menu.delegate = c
@@ -117,6 +119,7 @@ struct FileTableView: NSViewRepresentable {
         let rows = IndexSet(items.indices.filter { selection.contains(items[$0].url) })
         if table.selectedRowIndexes != rows { table.selectRowIndexes(rows, byExtendingSelection: false) }
         c.syncing = false
+        c.styleHeaders()
     }
 
     // MARK: Coordinator
@@ -129,6 +132,20 @@ struct FileTableView: NSViewRepresentable {
         var syncing = false
 
         private var lastClipWidth: CGFloat = 0
+
+        /// Widths of the columns the user dragged, kept between launches. Name is not saved, it fills the leftover width.
+        static func savedWidth(_ id: String) -> CGFloat? {
+            guard id != "name", let saved = UserDefaults.standard.dictionary(forKey: "columnWidths") as? [String: Double],
+                  let w = saved[id] else { return nil }
+            return CGFloat(w)
+        }
+
+        @objc func columnResized(_ note: Notification) {
+            guard let col = note.userInfo?["NSTableColumn"] as? NSTableColumn, col.identifier.rawValue != "name" else { return }
+            var saved = UserDefaults.standard.dictionary(forKey: "columnWidths") as? [String: Double] ?? [:]
+            saved[col.identifier.rawValue] = Double(col.width)
+            UserDefaults.standard.set(saved, forKey: "columnWidths")
+        }
 
         /// Notification entry point: only a change of the visible width re-fits Name. A scroller appearing changes the
         /// clip height only, and re-fitting then would snap a widened Name back.
@@ -349,7 +366,18 @@ struct FileTableView: NSViewRepresentable {
             }
         }
 
+        /// The column the list is sorted by keeps full contrast, the others are dimmed.
+        func styleHeaders() {
+            guard let table else { return }
+            let active = table.sortDescriptors.first?.key
+            for col in table.tableColumns {
+                col.headerCell.textColor = col.identifier.rawValue == active ? .labelColor : NSColor.labelColor.withAlphaComponent(0.45)
+            }
+            table.headerView?.needsDisplay = true
+        }
+
         func tableView(_ tableView: NSTableView, sortDescriptorsDidChange oldDescriptors: [NSSortDescriptor]) {
+            styleHeaders()
             guard !syncing, let d = tableView.sortDescriptors.first, let key = d.key else { return }
             let order: SortOrder = d.ascending ? .forward : .reverse
             let comparator: KeyPathComparator<FileItem>

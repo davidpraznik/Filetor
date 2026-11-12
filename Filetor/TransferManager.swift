@@ -30,7 +30,7 @@ final class TransferManager {
 
     var onFinished: (() -> Void)?
     var onError: ((String) -> Void)?
-    var onCompleted: ((_ move: Bool, _ records: [TransferRecord]) -> Void)?
+    var onCompleted: ((_ move: Bool, _ records: [TransferRecord], _ batch: UUID?) -> Void)?
 
     var pending: ConflictRequest? { queue.first }
     var hasActive: Bool { jobs.contains { !$0.isFinished } }
@@ -40,7 +40,7 @@ final class TransferManager {
         return active.map(\.fraction).reduce(0, +) / Double(active.count)
     }
 
-    func start(items: [(src: URL, dstDir: URL)], move: Bool, conflict: ConflictChoice? = nil) {
+    func start(items: [(src: URL, dstDir: URL)], move: Bool, conflict: ConflictChoice? = nil, batch: UUID? = nil) {
         guard !items.isEmpty else { return }
         let verb = move ? "Moving" : "Copying"
         let title = items.count == 1 ? "\(verb) \(items[0].src.lastPathComponent)" : "\(verb) \(items.count) items"
@@ -69,7 +69,7 @@ final class TransferManager {
             job.fraction = 1
             job.isFinished = true
             self?.onFinished?()
-            if !engine.records.isEmpty { self?.onCompleted?(move, engine.records) }
+            if !engine.records.isEmpty || batch != nil { self?.onCompleted?(move, engine.records, batch) }
             if !failures.isEmpty {
                 self?.onError?(failures.joined(separator: "\n"))
             }

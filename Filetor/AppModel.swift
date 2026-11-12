@@ -2,6 +2,11 @@ import SwiftUI
 import Observation
 
 /// One thing ⌘Z can take back and ⇧⌘Z can do again. The closures return an error message, or nil when it worked.
+struct SyncBatchState {
+    var remaining: Int
+    var parts: [(undo: () -> String?, redo: () -> String?, count: Int)] = []
+}
+
 struct UndoStep {
     let title: String
     let undo: () -> String?
@@ -78,6 +83,8 @@ final class AppModel {
     /// Steps that ⌘Z can undo, and steps that ⇧⌘Z can do again (newest last).
     private(set) var undoSteps: [UndoStep] = []
     private(set) var redoSteps: [UndoStep] = []
+    /// Transfers that belong to one Synchronize run; they become a single undo step.
+    @ObservationIgnored var syncBatches: [UUID: SyncBatchState] = [:]
     var undoTitle: String? { undoSteps.last.map { "Undo " + $0.title } }
     var redoTitle: String? { redoSteps.last.map { "Redo " + $0.title } }
 
@@ -114,7 +121,7 @@ final class AppModel {
     init() {
         transfers.onFinished = { [weak self] in self?.refresh() }
         transfers.onError = { [weak self] message in self?.alert = message }
-        transfers.onCompleted = { [weak self] move, records in self?.recordTransferUndo(move: move, records: records) }
+        transfers.onCompleted = { [weak self] move, records, batch in self?.recordTransferUndo(move: move, records: records, batch: batch) }
         restoreSession()
         for name in [NSApplication.willTerminateNotification, NSApplication.didResignActiveNotification] {
             NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in

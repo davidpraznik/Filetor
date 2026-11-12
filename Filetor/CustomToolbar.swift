@@ -25,6 +25,18 @@ private struct ToolButtonBody: View {
     }
 }
 
+/// Back and Forward halves: the glyph and half of the capsule turn blue while pressed.
+private struct NavHalfStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(configuration.isPressed ? AnyShapeStyle(Color.filetor) : AnyShapeStyle(Color.primary.opacity(0.6)))
+            .background(configuration.isPressed ? Color.filetor.opacity(0.18) : Color.clear)
+            .opacity(isEnabled ? 1 : 0.35)
+    }
+}
+
 struct ToolButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         ToolButtonBody(configuration: configuration)
@@ -149,21 +161,22 @@ struct CustomToolbar: View {
                     Button { app.active.goBack() } label: {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 15 * s, weight: .regular))
-                            .foregroundStyle(Color.primary.opacity(0.6))
                             .frame(width: 34 * s, height: 28 * s)
+                            .contentShape(Rectangle())
                     }
                     .disabled(!app.active.canGoBack)
                     .help("Back")
                     Button { app.active.goForward() } label: {
                         Image(systemName: "chevron.right")
                             .font(.system(size: 15 * s, weight: .regular))
-                            .foregroundStyle(Color.primary.opacity(0.6))
                             .frame(width: 34 * s, height: 28 * s)
+                            .contentShape(Rectangle())
                     }
                     .disabled(!app.active.canGoForward)
                     .help("Forward")
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(NavHalfStyle())
+                .clipShape(Capsule())
                 .background(Capsule().fill(Color.primary.opacity(0.07)))
                 if model.showLabels {
                     Text("Back/Forward").font(.system(size: 10.5 * s)).foregroundStyle(.secondary)

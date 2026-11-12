@@ -354,8 +354,11 @@ extension AppModel {
         }
         let right = items(.toRight), left = items(.toLeft)
         sync = nil
-        transfers.start(items: right, move: false, conflict: .replace)
-        transfers.start(items: left, move: false, conflict: .replace)
+        // Both directions are one undo step.
+        let batch = UUID()
+        syncBatches[batch] = SyncBatchState(remaining: (right.isEmpty ? 0 : 1) + (left.isEmpty ? 0 : 1))
+        transfers.start(items: right, move: false, conflict: .replace, batch: batch)
+        transfers.start(items: left, move: false, conflict: .replace, batch: batch)
     }
 }
 
@@ -497,14 +500,41 @@ struct SyncContent: View {
 // MARK: - Undo for copy and move
 
 extension AppModel {
-    func recordTransferUndo(move: Bool, records: [TransferRecord]) {
+    func recordTransferUndo(move: Bool, records: [TransferRecord], batch: UUID? = nil) {
+        if let batch { recordBatchPart(batch, records: records); return }
         guard !records.isEmpty else { return }
-        let fm = FileManager.default
         let verb = move ? "Move" : "Copy"
         let title = records.count == 1 ? "\(verb) \"\(records[0].dst.lastPathComponent)\"" : "\(verb) \(records.count) items"
-        var recs = records
+        let c = Self.transferClosures(records)
+        pushUndo(title, undo: c.undo, redo: c.redo)
+    }
 
-        pushUndo(title, undo: {
+    /// One finished transfer of a Synchronize run. When the last one is in, the whole run is pushed as one step.
+    private func recordBatchPart(_ id: UUID, records: [TransferRecord]) {
+        guard var b = syncBatches[id] else { return }
+        if !records.isEmpty {
+            let c = Self.transferClosures(records)
+            b.parts.append((undo: c.undo, redo: c.redo, count: records.count))
+        }
+        b.remaining -= 1
+        if b.remaining > 0 { syncBatches[id] = b; return }
+        syncBatches[id] = nil
+        guard !b.parts.isEmpty else { return }
+        let parts = b.parts
+        let total = parts.reduce(0) { $0 + $1.count }
+        pushUndo(total == 1 ? "Synchronize 1 item" : "Synchronize \(total) items", undo: {
+            let errors = parts.reversed().compactMap { $0.undo() }
+            return errors.isEmpty ? nil : errors.joined(separator: "\n")
+        }, redo: {
+            let errors = parts.compactMap { $0.redo() }
+            return errors.isEmpty ? nil : errors.joined(separator: "\n")
+        })
+    }
+
+    private static func transferClosures(_ records: [TransferRecord]) -> (undo: () -> String?, redo: () -> String?) {
+        let fm = FileManager.default
+        var recs = records
+        return ({
             var errors: [String] = []
             for r in recs.reversed() {
                 do {
@@ -522,7 +552,7 @@ extension AppModel {
                 } catch { errors.append("\(r.dst.lastPathComponent): \(error.localizedDescription)") }
             }
             return errors.isEmpty ? nil : errors.joined(separator: "\n")
-        }, redo: {
+        }, {
             var errors: [String] = []
             for i in recs.indices {
                 let r = recs[i]
