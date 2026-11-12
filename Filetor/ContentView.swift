@@ -68,7 +68,7 @@ struct ContentView: View {
         }
         .preferredColorScheme(appearance == 0 ? .light : (appearance == 1 ? .dark : nil))
         .tint(SettingsSheet.accents[min(max(accent, 0), SettingsSheet.accents.count - 1)])
-        .navigationTitle(pane.currentURL.lastPathComponent.isEmpty ? "/" : pane.currentURL.lastPathComponent)
+        .navigationTitle(CloudLocation.title(for: pane.currentURL))
         .toolbar(removing: .sidebarToggle)
         .background(NativeToolbarRemover(trigger: "\(app.sidebarVisibility)"))
         .background {
@@ -157,7 +157,7 @@ struct TabStrip: View {
     var body: some View {
         HStack(spacing: 4) {
             ForEach(Array(group.tabs.enumerated()), id: \.element.id) { i, tab in
-                let name = tab.currentURL.lastPathComponent.isEmpty ? "/" : tab.currentURL.lastPathComponent
+                let name = CloudLocation.title(for: tab.currentURL)
                 HStack(spacing: 6) {
                     Text(name).lineLimit(1)
                     if group.tabs.count > 1 {

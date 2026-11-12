@@ -33,21 +33,26 @@ struct BreadcrumbBar: View {
         return v
     }
 
+    /// Cloud provider folder (iCloud Drive, Google Drive, ...) the pane is in, if any. Its crumbs start at the provider.
+    private var cloudRoot: CloudLocation? { CloudLocation.containing(pane.currentURL) }
+
     private var rootIcon: String {
+        if let c = cloudRoot { return c.icon }
         guard let v = volumeRoot else { return "internaldrive" }
         let local = (try? v.resourceValues(forKeys: [.volumeIsLocalKey]))?.volumeIsLocal ?? true
         return local ? "externaldrive" : "externaldrive.connected.to.line.below"
     }
 
     private var rootName: String {
-        volumeRoot?.lastPathComponent ?? FileManager.default.displayName(atPath: "/")
+        if let c = cloudRoot { return c.name }
+        return volumeRoot?.lastPathComponent ?? FileManager.default.displayName(atPath: "/")
     }
 
     private var crumbs: [URL] {
-        let base = volumeRoot ?? URL(filePath: "/")
+        let base = cloudRoot?.url ?? volumeRoot ?? URL(filePath: "/")
         var list: [URL] = [base]
         var cur = base
-        let skip = volumeRoot == nil ? 1 : 3
+        let skip = base.standardizedFileURL.pathComponents.count
         for part in pane.currentURL.standardizedFileURL.pathComponents.dropFirst(skip) {
             cur = cur.appending(path: part)
             list.append(cur)
@@ -151,5 +156,54 @@ struct BreadcrumbBar: View {
             .help("New Tab")
         }
         .frame(height: 44 * s)
+    }
+}
+
+
+/// iCloud Drive and cloud provider folders with friendly names. One provider with one account is just "Google Drive";
+/// with several accounts the account is added, e.g. "Google Drive (name@example.com)".
+struct CloudLocation {
+    let name: String
+    let icon: String
+    let url: URL
+
+    static func all() -> [CloudLocation] {
+        let fm = FileManager.default
+        let home = fm.homeDirectoryForCurrentUser
+        var out: [CloudLocation] = []
+        let icloud = home.appendingPathComponent("Library/Mobile Documents/com~apple~CloudDocs")
+        if fm.fileExists(atPath: icloud.path) { out.append(CloudLocation(name: "iCloud Drive", icon: "icloud", url: icloud)) }
+        let storage = home.appendingPathComponent("Library/CloudStorage")
+        let dirs = (try? fm.contentsOfDirectory(at: storage, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])) ?? []
+        for url in dirs.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
+            let n = url.lastPathComponent
+            let (provider, account): (String, String) = {
+                if n.hasPrefix("GoogleDrive-") { return ("Google Drive", String(n.dropFirst("GoogleDrive-".count))) }
+                if n.hasPrefix("OneDrive-") { return ("OneDrive", String(n.dropFirst("OneDrive-".count))) }
+                if n.hasPrefix("Dropbox") { return ("Dropbox", "") }
+                return (n, "")
+            }()
+            let same = dirs.filter { $0.lastPathComponent.hasPrefix(n.split(separator: "-").first.map(String.init) ?? n) }.count
+            let name = (same > 1 && !account.isEmpty) ? "\(provider) (\(account))" : provider
+            out.append(CloudLocation(name: name, icon: "cloud", url: url))
+        }
+        return out
+    }
+
+    /// The provider folder that contains the given location, if any.
+    static func containing(_ location: URL) -> CloudLocation? {
+        let path = location.standardizedFileURL.path
+        guard path.contains("/Library/CloudStorage/") || path.contains("/Library/Mobile Documents/com~apple~CloudDocs") else { return nil }
+        return all().first { path == $0.url.standardizedFileURL.path || path.hasPrefix($0.url.standardizedFileURL.path + "/") }
+    }
+
+    /// Title of a folder: the provider name for a cloud provider's own folder, otherwise the folder name.
+    static func title(for url: URL) -> String {
+        let last = url.lastPathComponent
+        guard last.hasPrefix("GoogleDrive-") || last.hasPrefix("OneDrive-") || last.hasPrefix("Dropbox") || last == "com~apple~CloudDocs",
+              let c = containing(url), c.url.standardizedFileURL.path == url.standardizedFileURL.path else {
+            return last.isEmpty ? "/" : last
+        }
+        return c.name
     }
 }

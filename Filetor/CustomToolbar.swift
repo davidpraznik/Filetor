@@ -171,8 +171,7 @@ struct CustomToolbar: View {
             }
             .frame(width: 100 * s, alignment: .leading)
         case "title":
-            let name = app.active.currentURL.lastPathComponent
-            Text(name.isEmpty ? "/" : name)
+            Text(CloudLocation.title(for: app.active.currentURL))
                 .font(.system(size: 18 * s, weight: .semibold))
                 .lineLimit(1)
                 .truncationMode(.tail)
