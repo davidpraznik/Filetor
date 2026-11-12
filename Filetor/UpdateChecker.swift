@@ -13,25 +13,33 @@ final class UpdateChecker {
     static let repo = "davidpraznik/Filetor"
     var state: State = .idle
 
+    /// True while a newer release exists. Drives the dot on the Settings button.
+    var isAvailable: Bool {
+        if case .available = state { return true }
+        return false
+    }
+
     var installed: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
     }
 
     @MainActor
     func check() async {
-        state = .checking
+        // A background re-check keeps showing a known update instead of flickering to "Checking…".
+        let previous = state
+        if !isAvailable { state = .checking }
         guard let api = URL(string: "https://api.github.com/repos/\(Self.repo)/releases/latest") else { return }
         do {
             var req = URLRequest(url: api)
             req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
             let (data, response) = try await URLSession.shared.data(for: req)
             if (response as? HTTPURLResponse)?.statusCode == 404 {
-                state = .failed("No release published yet.")
+                state = isAvailable ? previous : .failed("No release published yet.")
                 return
             }
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let tag = json["tag_name"] as? String else {
-                state = .failed("Could not read the latest release.")
+                state = isAvailable ? previous : .failed("Could not read the latest release.")
                 return
             }
             let latest = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
@@ -42,7 +50,7 @@ final class UpdateChecker {
                 state = .upToDate
             }
         } catch {
-            state = .failed("Could not reach GitHub.")
+            state = isAvailable ? previous : .failed("Could not reach GitHub.")
         }
     }
 

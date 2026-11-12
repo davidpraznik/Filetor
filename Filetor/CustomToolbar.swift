@@ -235,6 +235,14 @@ struct CustomToolbar: View {
                             .font(.system(size: 16 * s, weight: .light))
                             .foregroundStyle((def.isOn?(app) ?? false) ? AnyShapeStyle(Color.filetor) : AnyShapeStyle(Color.primary.opacity(0.6)))
                             .frame(width: 42 * s, height: 30 * s)
+                            .overlay(alignment: .topTrailing) {
+                                if entry.kind == "customize" && app.updater.isAvailable {
+                                    Circle().fill(Color.filetor)
+                                        .frame(width: 9 * s, height: 9 * s)
+                                        .overlay(Circle().stroke(Color(nsColor: .windowBackgroundColor), lineWidth: 1.5))
+                                        .offset(x: -5 * s, y: 1 * s)
+                                }
+                            }
                         if model.showLabels {
                             Text(def.title).font(.system(size: 10.5 * s)).foregroundStyle(Color.primary.opacity(0.6)).lineLimit(1)
                         }

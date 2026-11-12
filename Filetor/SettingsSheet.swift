@@ -117,12 +117,24 @@ struct SettingsSheet: View {
                         }
                     }
                 Toggle("Check for updates automatically", isOn: $autoUpdate)
+                if case .available(let version, let url) = app.updater.state {
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Version \(version) is available").fontWeight(.semibold)
+                            Text("Installed: \(app.updater.installed)").foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 12)
+                        Button("Download") { NSWorkspace.shared.open(url) }
+                            .buttonStyle(PathsButtonStyle(scale: s, prominent: true))
+                    }
+                    .padding(12 * s)
+                    .background(RoundedRectangle(cornerRadius: 8 * s).fill(Color.filetor.opacity(0.08)))
+                }
                 HStack(spacing: 12) {
                     Button("Check for updates") { Task { await app.updater.check() } }
                         .buttonStyle(PathsButtonStyle(scale: s))
-                    Text(app.updater.message).foregroundStyle(.secondary)
-                    if case .available(_, let url) = app.updater.state {
-                        Link("Download", destination: url)
+                    if !app.updater.isAvailable {
+                        Text(app.updater.message).foregroundStyle(.secondary)
                     }
                 }
             }

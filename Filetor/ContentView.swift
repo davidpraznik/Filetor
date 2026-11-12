@@ -102,11 +102,12 @@ struct ContentView: View {
             app.network.start()
         }
         .task {
-            if UserDefaults.standard.object(forKey: "autoUpdate") as? Bool ?? true {
-                await app.updater.check()
-                if case .available(let v, _) = app.updater.state {
-                    app.alert = "Filetor \(v) is available. Open Settings to download it."
+            // At launch and then every 6 hours while the app stays open.
+            while !Task.isCancelled {
+                if UserDefaults.standard.object(forKey: "autoUpdate") as? Bool ?? true {
+                    await app.updater.check()
                 }
+                try? await Task.sleep(for: .seconds(6 * 3600))
             }
         }
         .floatingPanel(isPresented: Binding(get: { model.batchRename != nil }, set: { if !$0 { model.batchRename = nil } })) {
