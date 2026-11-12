@@ -55,8 +55,8 @@ struct FileTableView: NSViewRepresentable {
         let visible = Coordinator.visibleColumns()
         for col in table.tableColumns { col.isHidden = col.identifier.rawValue != "name" && !visible.contains(col.identifier.rawValue) }
         table.allowsColumnResizing = true
+        // User resizing only: an autoresizing Name column would absorb every widening and keep the table locked to the visible width.
         for col in table.tableColumns { col.resizingMask = .userResizingMask }
-        table.tableColumns[0].resizingMask = [.autoresizingMask, .userResizingMask]
 
         let menu = NSMenu()
         menu.delegate = c
@@ -106,7 +106,7 @@ struct FileTableView: NSViewRepresentable {
         }
         if let fc = table.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier("folder")), fc.isHidden == showFolder {
             fc.isHidden = !showFolder
-            c.fillWidth()
+            c.fitName(force: true)
         }
         if itemsChanged || settingsChanged { table.reloadData() }
         // Rename happens in the row. Only the pane that holds the item starts it (the active one when both do).
@@ -128,9 +128,17 @@ struct FileTableView: NSViewRepresentable {
         var lastSettings: [CGFloat] = []
         var syncing = false
 
-        @objc func fillWidth() {
+        private var lastClipWidth: CGFloat = 0
+
+        /// Notification entry point: only a change of the visible width re-fits Name. A scroller appearing changes the
+        /// clip height only, and re-fitting then would snap a widened Name back.
+        @objc func fillWidth() { fitName(force: false) }
+
+        func fitName(force: Bool) {
             guard let table, let clip = table.enclosingScrollView?.contentView,
                   let name = table.tableColumns.first(where: { $0.identifier.rawValue == "name" }) else { return }
+            if !force && abs(clip.bounds.width - lastClipWidth) < 0.5 { return }
+            lastClipWidth = clip.bounds.width
             let others = table.tableColumns.filter { $0 !== name && !$0.isHidden }.reduce(CGFloat(0)) { $0 + $1.width }
             let spacing = table.intercellSpacing.width * CGFloat(table.numberOfColumns)
             name.width = max(name.minWidth, clip.bounds.width - others - spacing)
@@ -534,7 +542,7 @@ struct FileTableView: NSViewRepresentable {
             if visible.contains(id) { visible.remove(id) } else { visible.insert(id) }
             UserDefaults.standard.set(Array(visible), forKey: "fileColumns")
             table.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier(id))?.isHidden = !visible.contains(id)
-            fillWidth()
+            fitName(force: true)
         }
 
         private func item(_ title: String, _ action: @escaping () -> Void) -> NSMenuItem {
