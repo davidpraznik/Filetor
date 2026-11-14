@@ -54,14 +54,14 @@ struct SegmentedChoice: View {
         HStack(spacing: 0) {
             ForEach(options.indices, id: \.self) { i in
                 Text(options[i])
-                    .foregroundStyle(accent && selection == i ? Color.white : Color.primary)
+                    .foregroundStyle(accent && selection == i ? Color.filetor : Color.primary)
                     .padding(.horizontal, 12 * scale)
                     .padding(.vertical, 4 * scale)
                     .frame(minWidth: 34 * scale, maxWidth: width == nil ? nil : .infinity)
                     .background {
                         if selection == i {
                             RoundedRectangle(cornerRadius: 6)
-                                .fill(accent ? Color.filetor : Color(nsColor: .controlBackgroundColor))
+                                .fill(Color(nsColor: .controlBackgroundColor))
                                 .shadow(color: .black.opacity(0.12), radius: 0.8, y: 0.5)
                         }
                     }
