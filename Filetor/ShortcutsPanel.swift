@@ -43,6 +43,7 @@ enum Shortcuts {
             ("Rotate Left", "—"),
             ("Rotate Right", "—"),
             ("Convert Image", "—"),
+            ("Strip Metadata", "—"),
             ("Find Duplicates", "—"),
             ("Compare Folders", "—"),
             ("Synchronize", "—"),

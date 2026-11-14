@@ -63,6 +63,8 @@ enum ToolCatalog {
                 run: { $0.compress($0.active.selection) }),
         ToolDef(id: "decompress", title: "Decompress", symbol: "arrow.up.left.and.arrow.down.right", needsSelection: true,
                 run: { $0.decompress($0.active.selection) }),
+        ToolDef(id: "stripMeta", title: "Strip Metadata", symbol: "eraser", needsSelection: true,
+                run: { $0.stripMetadata($0.active.selection) }),
         ToolDef(id: "touch", title: "Touch", symbol: "clock", needsSelection: true,
                 run: { $0.touch($0.active.selection) }),
         ToolDef(id: "copyPath", title: "Copy Path", symbol: "link",
@@ -91,7 +93,7 @@ enum ToolCatalog {
         "sidebar", "backfwd", "enclosing", "title", "view", "dual", "swap",
         "quickLook", "hidden", "newFolder", "newFile", "newTab",
         "open", "rename", "duplicate", "copy", "move", "trash", "compress",
-        "decompress", "touch", "copyPath", "terminal", "reload",
+        "decompress", "stripMeta", "touch", "copyPath", "terminal", "reload",
         "airdrop", "connect", "info", "customize", "search", "space", "flex",
     ]
 

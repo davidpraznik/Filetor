@@ -270,6 +270,15 @@ final class AppModel {
         }
     }
 
+    func stripMetadata(_ urls: Set<URL>) {
+        let list = urls.sorted { $0.lastPathComponent < $1.lastPathComponent }
+        Task {
+            let err = await Task.detached { FileTools.stripMetadata(list) }.value
+            refresh()
+            if let err { alert = err }
+        }
+    }
+
     func convertImages(_ urls: Set<URL>, format: String, ext: String) {
         let list = urls.sorted { $0.lastPathComponent < $1.lastPathComponent }
         Task {

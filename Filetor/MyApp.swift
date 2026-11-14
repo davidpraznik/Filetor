@@ -110,6 +110,8 @@ import SwiftUI
                     Button("TIFF") { app.convertImages(app.active.selection, format: "tiff", ext: "tiff") }
                 }
                 .disabled(app.active.selection.isEmpty)
+                Button("Strip Metadata") { app.stripMetadata(app.active.selection) }
+                    .disabled(app.active.selection.isEmpty)
                 Divider()
                 Button("Find Duplicates…") { app.findDuplicates() }
                 Button("Compare Folders…") { app.compareFolders() }

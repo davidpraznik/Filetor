@@ -33,6 +33,7 @@ struct AppCommand: Identifiable {
         AppCommand(id: "toPNG", title: "Convert Image to PNG", isEnabled: hasImage) { $0.convertImages($0.active.selection, format: "png", ext: "png") },
         AppCommand(id: "toJPEG", title: "Convert Image to JPEG", isEnabled: hasImage) { $0.convertImages($0.active.selection, format: "jpeg", ext: "jpg") },
         AppCommand(id: "toHEIC", title: "Convert Image to HEIC", isEnabled: hasImage) { $0.convertImages($0.active.selection, format: "heic", ext: "heic") },
+        AppCommand(id: "stripMeta", title: "Strip Metadata", isEnabled: hasImage) { $0.stripMetadata($0.active.selection) },
         AppCommand(id: "toTIFF", title: "Convert Image to TIFF", isEnabled: hasImage) { $0.convertImages($0.active.selection, format: "tiff", ext: "tiff") },
         AppCommand(id: "dupes", title: "Find Duplicates…") { $0.findDuplicates() },
         AppCommand(id: "compare", title: "Compare Folders…") { $0.compareFolders() },

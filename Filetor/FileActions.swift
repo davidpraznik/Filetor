@@ -1,4 +1,5 @@
 import Foundation
+import ImageIO
 import UniformTypeIdentifiers
 
 /// Helpers that run outside the main actor (archives, folder sizes).
@@ -103,6 +104,55 @@ nonisolated enum FileTools {
                 .appending(path: url.deletingPathExtension().lastPathComponent + "." + ext))
             if let err = run("/usr/bin/sips", ["-s", "format", format, url.path, "--out", dest.path]) {
                 errors.append("\(url.lastPathComponent): \(err)")
+            }
+        }
+        return errors.isEmpty ? nil : errors.joined(separator: "\n")
+    }
+
+    /// Writes a copy without EXIF, GPS, IPTC and XMP next to each image ("name-clean"). The original stays untouched.
+    /// The orientation is kept, otherwise a rotated photo would show sideways.
+    static func stripMetadata(_ urls: [URL]) -> String? {
+        let images = urls.filter(isImage)
+        if images.isEmpty { return "Select one or more image files." }
+        var errors: [String] = []
+        for url in images {
+            guard let src = CGImageSourceCreateWithURL(url as CFURL, nil), let type = CGImageSourceGetType(src) else {
+                errors.append("\(url.lastPathComponent): Could not read the image.")
+                continue
+            }
+            let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any]
+            let orientation = (props?[kCGImagePropertyOrientation] as? NSNumber)?.intValue ?? 1
+            let ext = url.pathExtension
+            let name = url.deletingPathExtension().lastPathComponent + "-clean" + (ext.isEmpty ? "" : "." + ext)
+            let dest = unique(url.deletingLastPathComponent().appending(path: name))
+
+            let metadata = CGImageMetadataCreateMutable()
+            if orientation != 1 {
+                CGImageMetadataSetValueMatchingImageProperty(metadata, kCGImagePropertyTIFFDictionary,
+                                                             kCGImagePropertyTIFFOrientation, NSNumber(value: orientation))
+            }
+            var ok = false
+            if let out = CGImageDestinationCreateWithURL(dest as CFURL, type, 1, nil) {
+                let options: [CFString: Any] = [
+                    kCGImageDestinationMetadata: metadata,
+                    kCGImageDestinationMergeMetadata: false,
+                    kCGImageMetadataShouldExcludeGPS: true,
+                ]
+                // Copies the image data as it is, without recompressing.
+                ok = CGImageDestinationCopyImageSource(out, src, options as CFDictionary, nil)
+            }
+            if !ok {
+                // Formats that cannot be copied are written again from the pixels.
+                try? FileManager.default.removeItem(at: dest)
+                if let image = CGImageSourceCreateImageAtIndex(src, 0, nil),
+                   let out = CGImageDestinationCreateWithURL(dest as CFURL, type, 1, nil) {
+                    CGImageDestinationAddImage(out, image, [kCGImagePropertyOrientation: orientation] as CFDictionary)
+                    ok = CGImageDestinationFinalize(out)
+                }
+            }
+            if !ok {
+                try? FileManager.default.removeItem(at: dest)
+                errors.append("\(url.lastPathComponent): Could not write the clean copy.")
             }
         }
         return errors.isEmpty ? nil : errors.joined(separator: "\n")

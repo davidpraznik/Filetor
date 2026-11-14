@@ -524,6 +524,7 @@ struct FileTableView: NSViewRepresentable {
                 }
                 conv.submenu = sub
                 menu.addItem(conv)
+                menu.addItem(item("Strip Metadata") { [weak self] in self?.parent.app.stripMetadata(urls) })
             }
             menu.addItem(.separator())
             menu.addItem(item("Copy Path") {
