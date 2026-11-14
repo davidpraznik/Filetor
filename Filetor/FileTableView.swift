@@ -154,7 +154,8 @@ struct FileTableView: NSViewRepresentable {
 
         /// Name cannot be moved, and nothing can be dropped in front of it.
         func tableView(_ tableView: NSTableView, shouldReorderColumn columnIndex: Int, toColumn newColumnIndex: Int) -> Bool {
-            columnIndex > 0 && newColumnIndex > 0
+            // AppKit first asks with -1 when the drag starts; only a drop in front of Name (0) is refused.
+            columnIndex > 0 && newColumnIndex != 0
         }
 
         @objc func columnResized(_ note: Notification) {

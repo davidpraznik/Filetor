@@ -202,7 +202,7 @@ struct CloudLocation {
         let last = url.lastPathComponent
         guard last.hasPrefix("GoogleDrive-") || last.hasPrefix("OneDrive-") || last.hasPrefix("Dropbox") || last == "com~apple~CloudDocs",
               let c = containing(url), c.url.standardizedFileURL.path == url.standardizedFileURL.path else {
-            return last.isEmpty ? "/" : last
+            return last.isEmpty ? FileManager.default.displayName(atPath: "/") : last
         }
         return c.name
     }
