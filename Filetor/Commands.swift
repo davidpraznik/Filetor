@@ -570,3 +570,150 @@ extension AppModel {
         })
     }
 }
+
+// MARK: - Optimize images
+
+extension AppModel {
+    func optimizeImages(_ urls: Set<URL>) {
+        let images = urls.filter { FileTools.isImage($0) }.sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
+        guard !images.isEmpty else { alert = "Select one or more image files."; return }
+        optimizeURLs = images
+    }
+
+    func runOptimize(_ urls: [URL], options: OptimizeOptions) {
+        let job = TransferJob(title: urls.count == 1 ? "Optimizing \(urls[0].lastPathComponent)" : "Optimizing \(urls.count) images")
+        transfers.jobs.append(job)
+        Task {
+            var done: [OptimizedItem] = []
+            var errors: [String] = []
+            for (i, url) in urls.enumerated() {
+                job.currentName = url.lastPathComponent
+                let r = await Task.detached(priority: .userInitiated) { FileTools.optimize(url, options: options) }.value
+                if let item = r.item { done.append(item) }
+                if let e = r.error { errors.append(e) }
+                job.fraction = Double(i + 1) / Double(urls.count)
+            }
+            job.isFinished = true
+            if !done.isEmpty { recordOptimizeUndo(done) }
+            refresh()
+            if !errors.isEmpty { alert = errors.joined(separator: "\n") }
+            try? await Task.sleep(for: .seconds(1))
+            transfers.jobs.removeAll { $0.id == job.id }
+        }
+    }
+
+    private func recordOptimizeUndo(_ done: [OptimizedItem]) {
+        let fm = FileManager.default
+        var items = done
+        var inTrash = [URL?](repeating: nil, count: done.count)
+        let title = done.count == 1 ? "Optimize \"\(done[0].original.lastPathComponent)\"" : "Optimize \(done.count) images"
+        pushUndo(title, undo: {
+            var errors: [String] = []
+            for i in items.indices {
+                do {
+                    var r: NSURL?
+                    try fm.trashItem(at: items[i].result, resultingItemURL: &r)
+                    inTrash[i] = r as URL?
+                    if let t = items[i].trashedOriginal { try fm.moveItem(at: t, to: items[i].original) }
+                } catch { errors.append("\(items[i].result.lastPathComponent): \(error.localizedDescription)") }
+            }
+            return errors.isEmpty ? nil : errors.joined(separator: "\n")
+        }, redo: {
+            var errors: [String] = []
+            for i in items.indices {
+                do {
+                    if items[i].trashedOriginal != nil {
+                        var r: NSURL?
+                        try fm.trashItem(at: items[i].original, resultingItemURL: &r)
+                        items[i].trashedOriginal = r as URL?
+                    }
+                    if let t = inTrash[i] { try fm.moveItem(at: t, to: items[i].result) }
+                } catch { errors.append("\(items[i].result.lastPathComponent): \(error.localizedDescription)") }
+            }
+            return errors.isEmpty ? nil : errors.joined(separator: "\n")
+        })
+    }
+}
+
+struct OptimizeSheet: View {
+    let app: AppModel
+    let urls: [URL]
+    @Environment(\.closePanel) private var dismiss
+    @AppStorage("textSize") private var textSize = 1
+    @AppStorage("optimizeSize") private var sizeChoice = 0
+    @AppStorage("optimizeCustom") private var custom = 2048
+    @AppStorage("optimizeQuality") private var quality = 0.8
+    @AppStorage("optimizeSRGB") private var srgb = true
+    @AppStorage("optimizeStrip") private var strip = true
+    @AppStorage("optimizeReplace") private var replace = 0
+
+    private var s: CGFloat { UIScale.value(textSize) }
+
+    private var maxSide: Int? {
+        switch sizeChoice {
+        case 1: return 1920
+        case 2: return 1280
+        case 3: return max(16, custom)
+        default: return nil
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16 * s) {
+            Text(urls.count == 1 ? "Optimize Image" : "Optimize \(urls.count) Images").font(.system(size: 22 * s))
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Size (longest side, never enlarged)").foregroundStyle(.secondary)
+                HStack(spacing: 12) {
+                    SegmentedChoice(options: ["Original", "1920", "1280", "Custom"], selection: $sizeChoice, scale: s)
+                    if sizeChoice == 3 {
+                        TextField("", value: $custom, format: .number.grouping(.never))
+                            .textFieldStyle(PathsTextFieldStyle(scale: s))
+                            .frame(width: 80 * s)
+                        Text("px").foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("Quality").foregroundStyle(.secondary)
+                    Spacer()
+                    Text("\(Int((quality * 100).rounded())) %").foregroundStyle(.secondary)
+                }
+                Slider(value: $quality, in: 0.3...1.0)
+                Text("Applies to JPEG and HEIC.").font(.system(size: 12 * s)).foregroundStyle(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Toggle("Convert to sRGB", isOn: $srgb)
+                Toggle("Remove metadata", isOn: $strip)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Result").foregroundStyle(.secondary)
+                SegmentedChoice(options: ["Next to original", "Replace"], selection: $replace, scale: s)
+                Text(replace == 0 ? "Saved as name-web next to each original."
+                                  : "The originals are moved to the Trash. You can undo this with \u{2318}Z.")
+                    .font(.system(size: 12 * s)).foregroundStyle(.secondary)
+            }
+
+            HStack(spacing: 12) {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                    .buttonStyle(PathsButtonStyle(scale: s))
+                    .keyboardShortcut(.cancelAction)
+                Button("Optimize") {
+                    app.runOptimize(urls, options: OptimizeOptions(maxSide: maxSide, quality: quality, srgb: srgb, strip: strip, replace: replace == 1))
+                    dismiss()
+                }
+                .buttonStyle(PathsButtonStyle(scale: s, prominent: true))
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .toggleStyle(PathsCheckboxStyle(scale: s))
+        .font(.system(size: 13 * s))
+        .padding(28)
+        .frame(width: 460 * s)
+    }
+}

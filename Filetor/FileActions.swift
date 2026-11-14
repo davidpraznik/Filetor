@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 import ImageIO
 import UniformTypeIdentifiers
 
@@ -169,5 +170,103 @@ nonisolated enum FileTools {
             }
         }
         return total
+    }
+}
+
+// MARK: - Optimize for web
+
+nonisolated struct OptimizeOptions: Sendable {
+    var maxSide: Int?
+    var quality: Double
+    var srgb: Bool
+    var strip: Bool
+    var replace: Bool
+}
+
+nonisolated struct OptimizedItem: Sendable {
+    let original: URL
+    let result: URL
+    var trashedOriginal: URL?
+}
+
+nonisolated extension FileTools {
+    /// Resizes (never enlarges), converts to sRGB, drops or keeps metadata and writes "name-web" next to the original,
+    /// or replaces the original, which then goes to the Trash. The format stays the same, except BMP becomes PNG.
+    static func optimize(_ url: URL, options: OptimizeOptions) -> (item: OptimizedItem?, error: String?) {
+        func fail(_ message: String) -> (item: OptimizedItem?, error: String?) {
+            (nil, "\(url.lastPathComponent): \(message)")
+        }
+        let fm = FileManager.default
+        guard let src = CGImageSourceCreateWithURL(url as CFURL, nil), var type = CGImageSourceGetType(src) else {
+            return fail("Could not read the image.")
+        }
+        if let t = UTType(type as String), t.conforms(to: .bmp) { type = UTType.png.identifier as CFString }
+        let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any] ?? [:]
+        let w = (props[kCGImagePropertyPixelWidth] as? NSNumber)?.intValue ?? 0
+        let h = (props[kCGImagePropertyPixelHeight] as? NSNumber)?.intValue ?? 0
+        guard w > 0, h > 0 else { return fail("Could not read the size.") }
+        let longSide = max(w, h)
+        let target = min(options.maxSide ?? longSide, longSide)
+        let thumbOptions: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,   // applies the orientation to the pixels
+            kCGImageSourceThumbnailMaxPixelSize: target,
+        ]
+        guard var image = CGImageSourceCreateThumbnailAtIndex(src, 0, thumbOptions as CFDictionary) else {
+            return fail("Could not read the image.")
+        }
+
+        let isJPEG = UTType(type as String)?.conforms(to: .jpeg) == true
+        if options.srgb, let space = CGColorSpace(name: CGColorSpace.sRGB) {
+            let hasAlpha = ![CGImageAlphaInfo.none, .noneSkipFirst, .noneSkipLast].contains(image.alphaInfo)
+            let alpha: CGImageAlphaInfo = (hasAlpha && !isJPEG) ? .premultipliedLast : .noneSkipLast
+            if let ctx = CGContext(data: nil, width: image.width, height: image.height, bitsPerComponent: 8, bytesPerRow: 0,
+                                   space: space, bitmapInfo: alpha.rawValue) {
+                ctx.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+                if let converted = ctx.makeImage() { image = converted }
+            }
+        }
+
+        var dict: [CFString: Any] = [kCGImageDestinationLossyCompressionQuality: options.quality]
+        if !options.strip {
+            for key in [kCGImagePropertyExifDictionary, kCGImagePropertyGPSDictionary, kCGImagePropertyIPTCDictionary] {
+                if let v = props[key] { dict[key] = v }
+            }
+            if var tiff = props[kCGImagePropertyTIFFDictionary] as? [CFString: Any] {
+                tiff[kCGImagePropertyTIFFOrientation] = nil
+                dict[kCGImagePropertyTIFFDictionary] = tiff
+            }
+        }
+
+        let ext = (type as String) == (CGImageSourceGetType(src) as String?) ? url.pathExtension
+            : (UTType(type as String)?.preferredFilenameExtension ?? url.pathExtension)
+        let dir = url.deletingLastPathComponent()
+        let base = url.deletingPathExtension().lastPathComponent
+        let writeURL = options.replace
+            ? dir.appending(path: ".filetor-\(UUID().uuidString)." + ext)
+            : unique(dir.appending(path: base + "-web." + ext))
+        guard let out = CGImageDestinationCreateWithURL(writeURL as CFURL, type, 1, nil) else {
+            return fail("This format cannot be written.")
+        }
+        CGImageDestinationAddImage(out, image, dict as CFDictionary)
+        guard CGImageDestinationFinalize(out) else {
+            try? fm.removeItem(at: writeURL)
+            return fail("Could not write the image.")
+        }
+        if !options.replace { return (OptimizedItem(original: url, result: writeURL, trashedOriginal: nil), nil) }
+
+        var trashed: NSURL?
+        do { try fm.trashItem(at: url, resultingItemURL: &trashed) }
+        catch {
+            try? fm.removeItem(at: writeURL)
+            return fail("The original could not be moved to the Trash. \(error.localizedDescription)")
+        }
+        let final = unique(dir.appending(path: base + "." + ext))
+        do { try fm.moveItem(at: writeURL, to: final) }
+        catch {
+            try? fm.removeItem(at: writeURL)
+            return fail(error.localizedDescription)
+        }
+        return (OptimizedItem(original: url, result: final, trashedOriginal: trashed as URL?), nil)
     }
 }

@@ -122,6 +122,9 @@ struct ContentView: View {
                 try? await Task.sleep(for: .seconds(6 * 3600))
             }
         }
+        .floatingPanel(isPresented: Binding(get: { model.optimizeURLs != nil }, set: { if !$0 { model.optimizeURLs = nil } })) {
+            if let urls = model.optimizeURLs { OptimizeSheet(app: app, urls: urls) }
+        }
         .floatingPanel(isPresented: Binding(get: { model.batchRename != nil }, set: { if !$0 { model.batchRename = nil } })) {
             if let urls = model.batchRename { BatchRenameSheet(app: app, urls: urls) }
         }

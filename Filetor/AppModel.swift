@@ -77,6 +77,8 @@ final class AppModel {
     var alert: String?
     /// Items waiting for the "Delete Immediately?" confirmation.
     var pendingDelete: [URL]?
+    /// Images in the Optimize dialog.
+    var optimizeURLs: [URL]?
     /// Result of Find Duplicates or Compare Folders.
     var report: Report?
     var sync: SyncSession?
@@ -318,7 +320,7 @@ final class AppModel {
     /// Reloads every pane, for example after a setting that changes the listing.
     func reloadPanes() { refresh() }
 
-    private func refresh() {
+    func refresh() {
         for g in groups { g.current.load() }
     }
 
