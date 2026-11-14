@@ -665,7 +665,7 @@ struct OptimizeSheet: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Size (longest side, never enlarged)").foregroundStyle(.secondary)
                 HStack(spacing: 12) {
-                    SegmentedChoice(options: ["Original", "1920", "1280", "Custom"], selection: $sizeChoice, scale: s)
+                    SegmentedChoice(options: ["Original", "1920", "1280", "Custom"], selection: $sizeChoice, scale: s, accent: true)
                     if sizeChoice == 3 {
                         TextField("", value: $custom, format: .number.grouping(.never))
                             .textFieldStyle(PathsTextFieldStyle(scale: s))
@@ -692,7 +692,7 @@ struct OptimizeSheet: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("Result").foregroundStyle(.secondary)
-                SegmentedChoice(options: ["Next to original", "Replace"], selection: $replace, scale: s)
+                SegmentedChoice(options: ["Next to original", "Replace"], selection: $replace, scale: s, accent: true)
                 Text(replace == 0 ? "Saved as name-web next to each original."
                                   : "The originals are moved to the Trash. You can undo this with \u{2318}Z.")
                     .font(.system(size: 12 * s)).foregroundStyle(.secondary)

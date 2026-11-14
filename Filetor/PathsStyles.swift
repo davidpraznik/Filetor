@@ -48,18 +48,20 @@ struct SegmentedChoice: View {
     @Binding var selection: Int
     var scale: CGFloat = 1
     var width: CGFloat? = nil
+    var accent = false
 
     var body: some View {
         HStack(spacing: 0) {
             ForEach(options.indices, id: \.self) { i in
                 Text(options[i])
+                    .foregroundStyle(accent && selection == i ? Color.white : Color.primary)
                     .padding(.horizontal, 12 * scale)
                     .padding(.vertical, 4 * scale)
                     .frame(minWidth: 34 * scale, maxWidth: width == nil ? nil : .infinity)
                     .background {
                         if selection == i {
                             RoundedRectangle(cornerRadius: 6)
-                                .fill(Color(nsColor: .controlBackgroundColor))
+                                .fill(accent ? Color.filetor : Color(nsColor: .controlBackgroundColor))
                                 .shadow(color: .black.opacity(0.12), radius: 0.8, y: 0.5)
                         }
                     }
