@@ -645,6 +645,7 @@ struct OptimizeSheet: View {
     @AppStorage("optimizeQuality") private var quality = 0.8
     @AppStorage("optimizeSRGB") private var srgb = true
     @AppStorage("optimizeStrip") private var strip = true
+    @AppStorage("optimizePalette") private var palette = false
     @AppStorage("optimizeReplace") private var replace = 0
 
     private var s: CGFloat { UIScale.value(textSize) }
@@ -688,6 +689,7 @@ struct OptimizeSheet: View {
             VStack(alignment: .leading, spacing: 8) {
                 Toggle("Convert to sRGB", isOn: $srgb)
                 Toggle("Remove metadata", isOn: $strip)
+                Toggle("Reduce PNG to 256 colors", isOn: $palette).disabled(!strip)
             }
 
             VStack(alignment: .leading, spacing: 6) {
@@ -704,7 +706,7 @@ struct OptimizeSheet: View {
                     .buttonStyle(PathsButtonStyle(scale: s))
                     .keyboardShortcut(.cancelAction)
                 Button("Optimize") {
-                    app.runOptimize(urls, options: OptimizeOptions(maxSide: maxSide, quality: quality, srgb: srgb, strip: strip, replace: replace == 1))
+                    app.runOptimize(urls, options: OptimizeOptions(maxSide: maxSide, quality: quality, srgb: srgb, strip: strip, replace: replace == 1, pngPalette: palette && strip))
                     dismiss()
                 }
                 .buttonStyle(PathsButtonStyle(scale: s, prominent: true))

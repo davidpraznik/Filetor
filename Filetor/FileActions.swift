@@ -181,6 +181,7 @@ nonisolated struct OptimizeOptions: Sendable {
     var srgb: Bool
     var strip: Bool
     var replace: Bool
+    var pngPalette = false
 }
 
 nonisolated struct OptimizedItem: Sendable {
@@ -253,6 +254,11 @@ nonisolated extension FileTools {
             try? fm.removeItem(at: writeURL)
             return fail("Could not write the image.")
         }
+        if options.pngPalette, options.strip, UTType(type as String)?.conforms(to: .png) == true,
+           let data = PNGQuantizer.encode(image),
+           let written = (try? writeURL.resourceValues(forKeys: [.fileSizeKey]))?.fileSize, data.count < written {
+            try? data.write(to: writeURL)
+        }
         if !options.replace { return (OptimizedItem(original: url, result: writeURL, trashedOriginal: nil), nil) }
 
         var trashed: NSURL?
@@ -268,5 +274,155 @@ nonisolated extension FileTools {
             return fail(error.localizedDescription)
         }
         return (OptimizedItem(original: url, result: final, trashedOriginal: trashed as URL?), nil)
+    }
+}
+
+// MARK: - PNG palette (256 colours)
+
+import Compression
+
+/// Median-cut quantizer that writes an indexed PNG (PLTE + tRNS) by hand, because ImageIO cannot write palette PNGs with alpha.
+nonisolated enum PNGQuantizer {
+    static func encode(_ image: CGImage, maxColors: Int = 256) -> Data? {
+        let w = image.width, h = image.height
+        guard w > 0, h > 0, let space = CGColorSpace(name: CGColorSpace.sRGB) else { return nil }
+        var pixels = [UInt8](repeating: 0, count: w * h * 4)
+        let drawn = pixels.withUnsafeMutableBytes { buf -> Bool in
+            guard let ctx = CGContext(data: buf.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                                      space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
+            ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
+            return true
+        }
+        guard drawn else { return nil }
+
+        // Histogram over 5-bit colour and 3-bit alpha cells.
+        let cells = 1 << 18
+        let n = w * h
+        var keys = [Int32](repeating: 0, count: n)
+        var count = [Int](repeating: 0, count: cells)
+        var sums = [Int](repeating: 0, count: cells * 4)
+        for i in 0..<n {
+            let a = Int(pixels[i * 4 + 3])
+            var r = 0, g = 0, b = 0
+            if a > 0 {
+                r = Int(pixels[i * 4]); g = Int(pixels[i * 4 + 1]); b = Int(pixels[i * 4 + 2])
+                if a < 255 { r = min(255, r * 255 / a); g = min(255, g * 255 / a); b = min(255, b * 255 / a) }
+            }
+            let key = ((r >> 3) << 13) | ((g >> 3) << 8) | ((b >> 3) << 3) | (a >> 5)
+            keys[i] = Int32(key)
+            count[key] += 1
+            sums[key * 4] += r; sums[key * 4 + 1] += g; sums[key * 4 + 2] += b; sums[key * 4 + 3] += a
+        }
+        var entryKey: [Int] = [], cnt: [Int] = []
+        var avg: [[Int]] = [[], [], [], []]
+        for key in 0..<cells where count[key] > 0 {
+            entryKey.append(key); cnt.append(count[key])
+            for c in 0..<4 { avg[c].append(sums[key * 4 + c] / count[key]) }
+        }
+        let m = entryKey.count
+        guard m > 0 else { return nil }
+
+        // Median cut.
+        struct Box { var items: [Int]; var channel: Int; var score: Int }
+        func makeBox(_ items: [Int]) -> Box {
+            var lo = [255, 255, 255, 255], hi = [0, 0, 0, 0], pop = 0
+            for e in items {
+                pop += cnt[e]
+                for c in 0..<4 { lo[c] = min(lo[c], avg[c][e]); hi[c] = max(hi[c], avg[c][e]) }
+            }
+            var ch = 0, range = -1
+            for c in 0..<4 where hi[c] - lo[c] > range { range = hi[c] - lo[c]; ch = c }
+            return Box(items: items, channel: ch, score: items.count > 1 ? (range + 1) * Int(Double(pop).squareRoot()) : 0)
+        }
+        var boxes = [makeBox(Array(0..<m))]
+        while boxes.count < maxColors {
+            var bi = -1, best = 0
+            for (i, b) in boxes.enumerated() where b.score > best { best = b.score; bi = i }
+            guard bi >= 0 else { break }
+            let box = boxes[bi]
+            let sorted = box.items.sorted { avg[box.channel][$0] < avg[box.channel][$1] }
+            let total = sorted.reduce(0) { $0 + cnt[$1] }
+            var run = 0, cut = 1
+            for (i, e) in sorted.enumerated() {
+                run += cnt[e]
+                if run * 2 >= total { cut = i + 1; break }
+            }
+            cut = min(max(cut, 1), sorted.count - 1)
+            boxes[bi] = makeBox(Array(sorted[0..<cut]))
+            boxes.append(makeBox(Array(sorted[cut...])))
+        }
+
+        // Palette: weighted averages, transparent entries first so tRNS stays short.
+        var palette: [[Int]] = boxes.map { box in
+            var s = [0, 0, 0, 0], pop = 0
+            for e in box.items { pop += cnt[e]; for c in 0..<4 { s[c] += avg[c][e] * cnt[e] } }
+            return s.map { $0 / max(pop, 1) }
+        }
+        palette.sort { $0[3] < $1[3] }
+
+        // Nearest palette entry per histogram cell.
+        var lut = [UInt8](repeating: 0, count: cells)
+        for e in 0..<m {
+            var bestIndex = 0, bestDist = Int.max
+            for (i, p) in palette.enumerated() {
+                let dr = p[0] - avg[0][e], dg = p[1] - avg[1][e], db = p[2] - avg[2][e], da = p[3] - avg[3][e]
+                let d = dr * dr + dg * dg + db * db + da * da
+                if d < bestDist { bestDist = d; bestIndex = i }
+            }
+            lut[entryKey[e]] = UInt8(bestIndex)
+        }
+
+        // Scanlines with filter type 0.
+        var raw = [UInt8](repeating: 0, count: h * (w + 1))
+        for y in 0..<h {
+            let row = y * (w + 1)
+            for x in 0..<w { raw[row + 1 + x] = lut[Int(keys[y * w + x])] }
+        }
+
+        var dst = [UInt8](repeating: 0, count: raw.count + raw.count / 8 + 1024)
+        let size = raw.withUnsafeBufferPointer { s in
+            dst.withUnsafeMutableBufferPointer { d in
+                compression_encode_buffer(d.baseAddress!, d.count, s.baseAddress!, s.count, nil, COMPRESSION_ZLIB)
+            }
+        }
+        guard size > 0 else { return nil }
+        let zlib: [UInt8] = [0x78, 0x9C] + dst[0..<size] + be32(adler32(raw))
+
+        var png: [UInt8] = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]
+        png += chunk("IHDR", be32(UInt32(w)) + be32(UInt32(h)) + [8, 3, 0, 0, 0])
+        png += chunk("PLTE", palette.flatMap { [UInt8($0[0]), UInt8($0[1]), UInt8($0[2])] })
+        if let last = palette.lastIndex(where: { $0[3] < 255 }) {
+            png += chunk("tRNS", palette[0...last].map { UInt8($0[3]) })
+        }
+        png += chunk("IDAT", zlib)
+        png += chunk("IEND", [])
+        return Data(png)
+    }
+
+    private static func be32(_ v: UInt32) -> [UInt8] {
+        [UInt8(v >> 24), UInt8((v >> 16) & 255), UInt8((v >> 8) & 255), UInt8(v & 255)]
+    }
+
+    private static func chunk(_ type: String, _ body: [UInt8]) -> [UInt8] {
+        let t = Array(type.utf8)
+        return be32(UInt32(body.count)) + t + body + be32(crc32(t + body))
+    }
+
+    private static let crcTable: [UInt32] = (0..<256).map { n in
+        var c = UInt32(n)
+        for _ in 0..<8 { c = (c & 1) != 0 ? 0xEDB88320 ^ (c >> 1) : c >> 1 }
+        return c
+    }
+
+    private static func crc32(_ bytes: [UInt8]) -> UInt32 {
+        var c: UInt32 = 0xFFFFFFFF
+        for b in bytes { c = crcTable[Int((c ^ UInt32(b)) & 255)] ^ (c >> 8) }
+        return c ^ 0xFFFFFFFF
+    }
+
+    private static func adler32(_ bytes: [UInt8]) -> UInt32 {
+        var a: UInt32 = 1, b: UInt32 = 0
+        for v in bytes { a = (a + UInt32(v)) % 65521; b = (b + a) % 65521 }
+        return (b << 16) | a
     }
 }
