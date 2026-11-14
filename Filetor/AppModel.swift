@@ -362,6 +362,14 @@ final class AppModel {
     }
 
     func trash(_ urls: Set<URL>) {
+        // Off the main thread: on a network disk trashItem can take a while before it fails, which showed the spinning wheel.
+        Task {
+            let r = await Task.detached(priority: .userInitiated) { Self.trashAll(urls) }.value
+            finishTrash(failed: r.failed, noTrash: r.noTrash, moved: r.moved)
+        }
+    }
+
+    nonisolated private static func trashAll(_ urls: Set<URL>) -> (failed: [String], noTrash: [URL], moved: [(original: URL, trashed: URL)]) {
         var failed: [String] = []
         var noTrash: [URL] = []
         var moved: [(original: URL, trashed: URL)] = []
@@ -376,6 +384,11 @@ final class AppModel {
                 else { failed.append("\(url.lastPathComponent): \(error.localizedDescription)") }
             }
         }
+        return (failed, noTrash, moved)
+    }
+
+    private func finishTrash(failed: [String], noTrash: [URL], moved movedItems: [(original: URL, trashed: URL)]) {
+        var moved = movedItems
         if !noTrash.isEmpty { pendingDelete = noTrash.sorted { $0.path < $1.path } }
         if !moved.isEmpty {
             pushUndo(moved.count == 1 ? "Move to Trash" : "Move to Trash (\(moved.count) items)", undo: {
@@ -414,13 +427,21 @@ final class AppModel {
     func confirmDelete() {
         guard let urls = pendingDelete else { return }
         pendingDelete = nil
+        // Off the main thread: deleting on a network disk can take a while and would show the spinning wheel.
+        Task {
+            let failed = await Task.detached(priority: .userInitiated) { Self.removeAll(urls) }.value
+            refresh()
+            if !failed.isEmpty { alert = failed.joined(separator: "\n") }
+        }
+    }
+
+    nonisolated private static func removeAll(_ urls: [URL]) -> [String] {
         var failed: [String] = []
         for url in urls {
             do { try FileManager.default.removeItem(at: url) }
             catch { failed.append("\(url.lastPathComponent): \(error.localizedDescription)") }
         }
-        refresh()
-        if !failed.isEmpty { alert = failed.joined(separator: "\n") }
+        return failed
     }
 
     func beginRename(_ urls: Set<URL>) {
