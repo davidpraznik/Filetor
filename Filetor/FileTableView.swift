@@ -22,7 +22,7 @@ struct FileTableView: NSViewRepresentable {
         table.qlSource = c
         table.style = .plain
         table.allowsMultipleSelection = true
-        table.allowsColumnReordering = false
+        table.allowsColumnReordering = true
         table.columnAutoresizingStyle = .noColumnAutoresizing
         table.intercellSpacing = NSSize(width: 0, height: 0)
         table.gridStyleMask = []
@@ -54,6 +54,13 @@ struct FileTableView: NSViewRepresentable {
         add("size", "Size", 90, min: 60, right: true)
         let visible = Coordinator.visibleColumns()
         for col in table.tableColumns { col.isHidden = col.identifier.rawValue != "name" && !visible.contains(col.identifier.rawValue) }
+        // Saved column order; Name always stays first.
+        let order = (UserDefaults.standard.array(forKey: "columnOrder") as? [String] ?? []).filter { $0 != "name" }
+        for (i, id) in order.enumerated() {
+            let from = table.column(withIdentifier: NSUserInterfaceItemIdentifier(id))
+            if from >= 0, from != i + 1, i + 1 < table.numberOfColumns { table.moveColumn(from, toColumn: i + 1) }
+        }
+        NotificationCenter.default.addObserver(c, selector: #selector(Coordinator.columnMoved(_:)), name: NSTableView.columnDidMoveNotification, object: table)
         table.allowsColumnResizing = true
         // User resizing only: an autoresizing Name column would absorb every widening and keep the table locked to the visible width.
         for col in table.tableColumns { col.resizingMask = .userResizingMask }
@@ -138,6 +145,16 @@ struct FileTableView: NSViewRepresentable {
             guard id != "name", let saved = UserDefaults.standard.dictionary(forKey: "columnWidths") as? [String: Double],
                   let w = saved[id] else { return nil }
             return CGFloat(w)
+        }
+
+        @objc func columnMoved(_ note: Notification) {
+            guard let table else { return }
+            UserDefaults.standard.set(table.tableColumns.map(\.identifier.rawValue), forKey: "columnOrder")
+        }
+
+        /// Name cannot be moved, and nothing can be dropped in front of it.
+        func tableView(_ tableView: NSTableView, shouldReorderColumn columnIndex: Int, toColumn newColumnIndex: Int) -> Bool {
+            columnIndex > 0 && newColumnIndex > 0
         }
 
         @objc func columnResized(_ note: Notification) {

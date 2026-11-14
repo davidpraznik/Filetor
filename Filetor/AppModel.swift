@@ -363,8 +363,16 @@ final class AppModel {
 
     func trash(_ urls: Set<URL>) {
         // Off the main thread: on a network disk trashItem can take a while before it fails, which showed the spinning wheel.
+        // The toolbar progress ring only shows up when it takes longer than a moment, so quick trashing causes no flicker.
+        let job = TransferJob(title: "Moving to Trash")
         Task {
+            let shower = Task {
+                try? await Task.sleep(for: .milliseconds(400))
+                if !Task.isCancelled { transfers.jobs.append(job) }
+            }
             let r = await Task.detached(priority: .userInitiated) { Self.trashAll(urls) }.value
+            shower.cancel()
+            transfers.jobs.removeAll { $0.id == job.id }
             finishTrash(failed: r.failed, noTrash: r.noTrash, moved: r.moved)
         }
     }
@@ -427,21 +435,27 @@ final class AppModel {
     func confirmDelete() {
         guard let urls = pendingDelete else { return }
         pendingDelete = nil
-        // Off the main thread: deleting on a network disk can take a while and would show the spinning wheel.
+        // Runs in the background and shows in the toolbar progress ring like a copy.
+        let job = TransferJob(title: urls.count == 1 ? "Deleting \(urls[0].lastPathComponent)" : "Deleting \(urls.count) items")
+        transfers.jobs.append(job)
         Task {
-            let failed = await Task.detached(priority: .userInitiated) { Self.removeAll(urls) }.value
+            var failed: [String] = []
+            for (i, url) in urls.enumerated() {
+                job.currentName = url.lastPathComponent
+                if let error = await Task.detached(priority: .userInitiated, operation: { Self.remove(url) }).value { failed.append(error) }
+                job.fraction = Double(i + 1) / Double(urls.count)
+            }
+            job.isFinished = true
             refresh()
             if !failed.isEmpty { alert = failed.joined(separator: "\n") }
+            try? await Task.sleep(for: .seconds(1))
+            transfers.jobs.removeAll { $0.id == job.id }
         }
     }
 
-    nonisolated private static func removeAll(_ urls: [URL]) -> [String] {
-        var failed: [String] = []
-        for url in urls {
-            do { try FileManager.default.removeItem(at: url) }
-            catch { failed.append("\(url.lastPathComponent): \(error.localizedDescription)") }
-        }
-        return failed
+    nonisolated private static func remove(_ url: URL) -> String? {
+        do { try FileManager.default.removeItem(at: url); return nil }
+        catch { return "\(url.lastPathComponent): \(error.localizedDescription)" }
     }
 
     func beginRename(_ urls: Set<URL>) {
