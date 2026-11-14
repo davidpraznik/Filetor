@@ -28,6 +28,7 @@ enum Shortcuts {
             ("Copy", "⌘ C"),
             ("Paste", "⌘ V"),
             ("Move to Trash", "⌘ ⌫"),
+            ("Delete Immediately", "⌥ ⌘ ⌫"),
             ("Undo", "⌘ Z"),
             ("Redo", "⇧ ⌘ Z"),
             ("Quick Look", "Space"),

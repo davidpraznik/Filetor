@@ -22,6 +22,7 @@ struct AppCommand: Identifiable {
         AppCommand(id: "copyTo", title: "Copy to…", isEnabled: hasSelection) { $0.chooseFolderAndTransfer($0.active.selection, move: false) },
         AppCommand(id: "moveTo", title: "Move to…", isEnabled: hasSelection) { $0.chooseFolderAndTransfer($0.active.selection, move: true) },
         AppCommand(id: "trash", title: "Move to Trash", keys: "⌘ ⌫", isEnabled: hasSelection) { $0.trash($0.active.selection) },
+        AppCommand(id: "deleteNow", title: "Delete Immediately…", keys: "⌥ ⌘ ⌫", isEnabled: hasSelection) { $0.deleteImmediately($0.active.selection) },
         AppCommand(id: "copyOther", title: "Copy to Other Pane", keys: "F5", isEnabled: hasSelection) { $0.transfer($0.active.selection, move: false) },
         AppCommand(id: "moveOther", title: "Move to Other Pane", keys: "F6", isEnabled: hasSelection) { $0.transfer($0.active.selection, move: true) },
         AppCommand(id: "info", title: "Get Info", keys: "⌘ I", isEnabled: hasSelection) { $0.getInfo($0.active.selection) },

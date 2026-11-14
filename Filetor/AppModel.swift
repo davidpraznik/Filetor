@@ -75,6 +75,8 @@ final class AppModel {
     /// Files collected in the sidebar Drop Stack.
     var dropStack: [URL] = []
     var alert: String?
+    /// Items waiting for the "Delete Immediately?" confirmation.
+    var pendingDelete: [URL]?
     /// Result of Find Duplicates or Compare Folders.
     var report: Report?
     var sync: SyncSession?
@@ -361,14 +363,20 @@ final class AppModel {
 
     func trash(_ urls: Set<URL>) {
         var failed: [String] = []
+        var noTrash: [URL] = []
         var moved: [(original: URL, trashed: URL)] = []
         for url in urls {
             do {
                 var result: NSURL?
                 try FileManager.default.trashItem(at: url, resultingItemURL: &result)
                 if let result { moved.append((original: url, trashed: result as URL)) }
-            } catch { failed.append("\(url.lastPathComponent): \(error.localizedDescription)") }
+            } catch {
+                // Network and some external volumes have no Trash; Finder offers to delete right away.
+                if (error as? CocoaError)?.code == .featureUnsupported { noTrash.append(url) }
+                else { failed.append("\(url.lastPathComponent): \(error.localizedDescription)") }
+            }
         }
+        if !noTrash.isEmpty { pendingDelete = noTrash.sorted { $0.path < $1.path } }
         if !moved.isEmpty {
             pushUndo(moved.count == 1 ? "Move to Trash" : "Move to Trash (\(moved.count) items)", undo: {
                 var errors: [String] = []
@@ -392,6 +400,24 @@ final class AppModel {
                 }
                 return errors.isEmpty ? nil : errors.joined(separator: "\n")
             })
+        }
+        refresh()
+        if !failed.isEmpty { alert = failed.joined(separator: "\n") }
+    }
+
+    /// Asks first, then deletes without the Trash. This cannot be undone.
+    func deleteImmediately(_ urls: Set<URL>) {
+        guard !urls.isEmpty else { return }
+        pendingDelete = urls.sorted { $0.path < $1.path }
+    }
+
+    func confirmDelete() {
+        guard let urls = pendingDelete else { return }
+        pendingDelete = nil
+        var failed: [String] = []
+        for url in urls {
+            do { try FileManager.default.removeItem(at: url) }
+            catch { failed.append("\(url.lastPathComponent): \(error.localizedDescription)") }
         }
         refresh()
         if !failed.isEmpty { alert = failed.joined(separator: "\n") }

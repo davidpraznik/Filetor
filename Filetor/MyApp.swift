@@ -82,6 +82,9 @@ import SwiftUI
                 Button("Move to Trash") { app.trash(app.active.selection) }
                     .keyboardShortcut(.delete, modifiers: .command)
                     .disabled(app.active.selection.isEmpty)
+                Button("Delete Immediately…") { app.deleteImmediately(app.active.selection) }
+                    .keyboardShortcut(.delete, modifiers: [.command, .option])
+                    .disabled(app.active.selection.isEmpty)
                 Divider()
                 Button("Copy to Other Pane") { app.transfer(app.active.selection, move: false) }
                     .keyboardShortcut(.f5, modifiers: [])

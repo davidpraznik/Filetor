@@ -96,6 +96,18 @@ struct ContentView: View {
         )) { request in
             ConflictSheet(request: request, manager: app.transfers)
         }
+        .alert("Delete Immediately?", isPresented: Binding(
+            get: { app.pendingDelete != nil },
+            set: { if !$0 { app.pendingDelete = nil } }
+        )) {
+            Button("Delete", role: .destructive) { app.confirmDelete() }
+            Button("Cancel", role: .cancel) { app.pendingDelete = nil }
+        } message: {
+            let urls = app.pendingDelete ?? []
+            Text(urls.count == 1
+                 ? "\"\(urls[0].lastPathComponent)\" will be deleted right away. You can't undo this."
+                 : "\(urls.count) items will be deleted right away. You can't undo this.")
+        }
         .task {
             app.network.onError = { app.alert = $0 }
             app.network.onMounted = { app.active.navigate(to: $0) }
