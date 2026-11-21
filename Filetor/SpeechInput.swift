@@ -68,8 +68,9 @@ final class SpeechInput {
         self.onText = onText
         listening = true
         armSilence(after: 6)
-        task = Self.startTask(recognizer, request) { [weak self] text, finished in
-            Task { @MainActor in self?.handle(text, finished: finished) }
+        let me = WeakRef(self)
+        task = Self.startTask(recognizer, request) { text, finished in
+            Task { @MainActor in me.value?.handle(text, finished: finished) }
         }
     }
 
@@ -128,7 +129,12 @@ final class SpeechInput {
     }
 }
 
-private final class RequestBox: @unchecked Sendable {
+private nonisolated final class RequestBox: @unchecked Sendable {
     let request: SFSpeechAudioBufferRecognitionRequest
-    init(_ request: SFSpeechAudioBufferRecognitionRequest) { self.request = request }
+    nonisolated init(_ request: SFSpeechAudioBufferRecognitionRequest) { self.request = request }
+}
+
+private nonisolated final class WeakRef: @unchecked Sendable {
+    weak var value: SpeechInput?
+    nonisolated init(_ value: SpeechInput) { self.value = value }
 }
