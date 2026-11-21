@@ -92,7 +92,7 @@ Filetor also includes the functions of my two other apps, [Konverter](https://gi
 ## Settings
 
 <p align="center">
-  <img src="docs/filetor-settings-v4.png" alt="Filetor Settings in light and dark appearance" width="100%">
+  <img src="docs/filetor-settings-v5.png" alt="Filetor Settings: Appearance and AI" width="100%">
 </p>
 
 - General: launch at login, open with two panes, show hidden files, automatic update check.
