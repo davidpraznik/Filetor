@@ -8,10 +8,9 @@ struct SearchPopup: View {
     @AppStorage("textSize") private var textSize = 1
     @AppStorage("aiProvider") private var aiProvider = 0
     @State private var appeared = false
-    @State private var listening = false
+    @State private var speech = SpeechInput()
     @State private var closeWhenDone = false
     @State private var historyVersion = 0
-    @State private var silenceTask: Task<Void, Never>?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var s: CGFloat { UIScale.value(textSize) }
@@ -38,24 +37,14 @@ struct SearchPopup: View {
 
     private func close() { app.showSearchPopup = false }
 
-    /// Starts or stops the macOS Dictation in the search field (same as pressing the Dictation shortcut).
-    private func stopListening() {
-        silenceTask?.cancel()
-        listening = false
-        NSApp.sendAction(Selector(("stopDictation:")), to: nil, from: nil)
-    }
+    private var listening: Bool { speech.listening }
 
+    /// Starts or stops listening to the microphone. The words go into the search field.
     private func toggleDictation() {
-        if listening {
-            stopListening()
-        } else {
-            focused = true
-            listening = true
-            DispatchQueue.main.async {
-                // If nothing handles the action (Dictation not available), the mic does not stay in the listening state.
-                if !NSApp.sendAction(Selector(("startDictation:")), to: nil, from: nil) { listening = false }
-            }
-        }
+        if speech.listening { speech.stop(); return }
+        focused = true
+        let pane = app.active
+        speech.start(onText: { pane.filter = $0 }, onFailure: { pane.aiMessage = $0 })
     }
 
     private var micButton: some View {
@@ -76,7 +65,7 @@ struct SearchPopup: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(listening ? "Stop dictation" : "Dictate")
+        .help(listening ? "Stop listening" : "Speak")
     }
 
     private func ask(_ text: String, pane: PaneModel) {
@@ -122,7 +111,7 @@ struct SearchPopup: View {
                         .font(.system(size: 16 * s))
                         .focused($focused)
                         .onSubmit {
-                            if listening { stopListening() }
+                            speech.stop()
                             guard aiOn, pane.filter.split(separator: " ").count >= 2 else { close(); return }
                             let text = pane.filter.trimmingCharacters(in: .whitespacesAndNewlines)
                             if pane.aiAsking {
@@ -256,26 +245,17 @@ struct SearchPopup: View {
             DispatchQueue.main.async { focused = true }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { focused = true }
         }
-        .onChange(of: pane.filter) {
-            guard listening else { return }
-            // Dictation sends no "silence" signal. When the text stops changing for a moment, stop listening.
-            silenceTask?.cancel()
-            silenceTask = Task {
-                try? await Task.sleep(for: .seconds(1.5))
-                guard !Task.isCancelled, listening else { return }
-                stopListening()
-            }
-        }
         .onChange(of: pane.aiAsking) { _, asking in
             if asking {
-                if listening { stopListening() }
+                speech.stop()
             } else if closeWhenDone {
                 closeWhenDone = false
                 // Close only when the AI understood the sentence. On an error the popup stays open with the message.
                 if pane.aiMessage == nil { close() }
             }
         }
-        .onChange(of: focused) { _, isFocused in if !isFocused { listening = false } }
+        .onChange(of: focused) { _, isFocused in if !isFocused { speech.stop() } }
+        .onDisappear { speech.stop() }
     }
 
     private func key(_ text: String) -> some View {
