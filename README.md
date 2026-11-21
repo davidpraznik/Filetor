@@ -15,7 +15,7 @@ Filetor also includes the functions of my two other apps, [Konverter](https://gi
 Type what you need in the search field, for example "VectorCraft and Illustrator files from last week" or "photos from last week". Filetor turns the sentence into filters for name, kind, date and size. The searches you repeat most often appear under Try asking. The microphone button starts macOS Dictation in the field. AI search is optional and off by default.
 
 <p align="center">
-  <img src="docs/filetor-ai-search-v3.png" alt="Filetor search field with suggested searches" width="80%">
+  <img src="docs/filetor-ai-search-v4.png" alt="Filetor search field with suggested searches" width="80%">
 </p>
 
 ## Features
@@ -70,7 +70,7 @@ Type what you need in the search field, for example "VectorCraft and Illustrator
 - Saved searches: search by name, kind (images, design files, PDF, documents, video, folders), extensions, modified date and tag, in a folder you choose. A saved search appears in the sidebar under Searches.
 
 <p align="center">
-  <img src="docs/filetor-project-folder-v1.png" alt="New Project Folder dialog in Filetor" width="55%">
+  <img src="docs/filetor-project-folder-v2.png" alt="New Project Folder dialog in Filetor" width="55%">
 </p>
 
 **Actions**
@@ -80,7 +80,7 @@ Type what you need in the search field, for example "VectorCraft and Illustrator
 - If an action has a keyboard shortcut, it is shown next to it.
 
 <p align="center">
-  <img src="docs/filetor-actions-v1.png" alt="Actions list in Filetor, opened with ⌘K" width="70%">
+  <img src="docs/filetor-actions-v2.png" alt="Actions list in Filetor, opened with ⌘K" width="70%">
 </p>
 
 **Keyboard shortcuts**
@@ -88,7 +88,7 @@ Type what you need in the search field, for example "VectorCraft and Illustrator
 - ⌘F opens a search popup in the style of Actions. Typing filters the current folder, and a sentence is read by the AI when AI search is on.
 
 <p align="center">
-  <img src="docs/filetor-shortcuts-v3.png" alt="Keyboard shortcuts panel in Filetor" width="100%">
+  <img src="docs/filetor-shortcuts-v4.png" alt="Keyboard shortcuts panel in Filetor" width="100%">
 </p>
 
 **Customizable toolbar**
@@ -100,7 +100,7 @@ Type what you need in the search field, for example "VectorCraft and Illustrator
 ## Settings
 
 <p align="center">
-  <img src="docs/filetor-settings-v5.png" alt="Filetor Settings: Appearance and AI" width="100%">
+  <img src="docs/filetor-settings-v6.png" alt="Filetor Settings: Appearance and AI" width="100%">
 </p>
 
 - General: launch at login, open with two panes, show hidden files, automatic update check.
