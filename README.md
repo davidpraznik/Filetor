@@ -16,11 +16,13 @@ Filetor also includes the functions of my two other apps, [Konverter](https://gi
 - Two panes side by side, with tabs in each pane. Swap the panes or switch to a single pane.
 - List, icon and column views, a filter field and an info panel with details and a preview.
 - Search in subfolders: turn it on next to the filter field and the list shows matches from all subfolders, with a Folder column and a Stop button.
+- Folders open in place as a tree in the list view, with a disclosure arrow.
 - Columns of the list view (order and width) stay the same in both panes.
 - Open folders and tabs of both panes are restored when you start the app.
 - Sidebar with favorites, mounted disks (with eject), cloud storage (iCloud Drive, Google Drive, Dropbox, OneDrive) and network servers. Drag the sections to put them in your own order.
 - Right-click a folder in the path bar for the same actions as in the list.
-- Quick Look on the space bar.
+- Quick Look on the space bar. On a folder or an archive, the space bar shows what is inside it.
+- Themed folder icons (optional): Finder or Glass folders, with symbols for common folders such as Documents, Downloads, Pictures, Designs, Code, Public and Applications. Choose a multicolour or a single folder colour (Settings > Appearance).
 
 **Moving files**
 - Drag and drop between the panes, the sidebar and the Drop Stack. Copy by default, hold Command to move.
@@ -35,6 +37,7 @@ Filetor also includes the functions of my two other apps, [Konverter](https://gi
 - Compare Folders: shows what is missing or different between the two panes, by name, size and date.
 - Synchronize: copies the differences between the two panes one way or both ways. You can change the direction of every file, newer files replace older ones, replaced files go to the Trash and nothing is deleted.
 - Touch: sets the modification date of the selected files to now.
+- Large Files: lists the biggest files in a folder, largest first.
 - Folder sizes: an option shows the size of every folder in the list, like Finder does (Settings > Rows).
 - Compress and Decompress, Copy Path, Reveal in Finder, Open in Terminal.
 - Rotate Left, Rotate Right and Convert Image (PNG, JPEG, HEIC, TIFF, WebP) for image files.
@@ -44,6 +47,12 @@ Filetor also includes the functions of my two other apps, [Konverter](https://gi
 - Get Info opens the Finder info window for the selected items (⌘I).
 - Open With, Share (AirDrop, Mail, Messages) and the macOS Services menu, from the Commands menu and the context menu.
 - Show or hide hidden files with one click.
+
+**AI search (optional, off by default)**
+- Type a sentence in the search field, for example "PDFs larger than 5 MB" or "images from last month". Filetor turns it into filters (name, kind, date, size), shows them as chips and searches the current folder and its subfolders.
+- It works with a local model through [Ollama](https://ollama.com) or with any OpenAI-compatible service (OpenAI, Gemini, Mistral, Groq, OpenRouter and others), set up in Settings > AI.
+- Only the sentence you type and today's date are sent. File names and file contents are never sent. With a local model nothing leaves your Mac.
+- The API key for a service is stored in the macOS Keychain.
 
 **Projects, tags and searches**
 - New Project Folder creates a project folder with a set of subfolders from a template (Design project, Web project, Empty). You can turn subfolders on or off, rename them and save your own templates.
@@ -68,7 +77,7 @@ Filetor also includes the functions of my two other apps, [Konverter](https://gi
 
 **Keyboard shortcuts**
 - ⌥⌘K shows all keyboard shortcuts in tabs at the bottom of the window.
-- ⌘F moves focus to the search field in the toolbar. If the field is not in the toolbar, it opens a filter bar under the path bar.
+- ⌘F opens a search popup in the style of Actions. Typing filters the current folder, and a sentence is read by the AI when AI search is on.
 
 <p align="center">
   <img src="docs/filetor-shortcuts-v3.png" alt="Keyboard shortcuts panel in Filetor" width="100%">
@@ -86,13 +95,13 @@ Filetor also includes the functions of my two other apps, [Konverter](https://gi
   <img src="docs/filetor-settings-v4.png" alt="Filetor Settings in light and dark appearance" width="100%">
 </p>
 
-- Appearance: Light, Dark or Auto.
-- Accent colour: seven colours, applied across the app.
-- Text size: from S to Turbo.
-- Rows: compact rows, alternating row colours, keep folders on top, calculate all folder sizes.
-- Window: show item count and free space, open with two panes, show sidebar, show info panel.
-- Launch at login and automatic update check.
-- Folder access: shows whether Full Disk Access is on and opens the page in System Settings where you turn it on.
+- General: launch at login, open with two panes, show hidden files, automatic update check.
+- Appearance: Light, Dark or Auto. Accent colour (seven colours). Text size from S to Turbo. Folders: Finder or Glass, and a multicolour or single folder colour.
+- Rows: row size (one slider for the icon and the row), alternating row colours, keep folders on top, calculate all folder sizes, file extensions, icon previews.
+- Window: status bar with item count and free space, sidebar, info panel, toolbar items and labels.
+- Folder Access: shows whether Full Disk Access is on and opens the page in System Settings where you turn it on.
+- AI: provider (Off, Local or Other), address, key and model, and a connection test.
+- About: version and links.
 
 ## Requirements
 
@@ -126,11 +135,11 @@ The builds are not signed with a paid Apple Developer account, so macOS drops th
 
 ## Privacy
 
-Filetor does not collect any telemetry, analytics or usage data. The only network request the app makes by itself is the update check, which asks GitHub for the latest release number. You can turn it off in Settings. Everything else (files, tags, searches, settings) stays on your Mac.
+Filetor does not collect any telemetry, analytics or usage data. The only network request the app makes by itself is the update check, which asks GitHub for the latest release number. You can turn it off in Settings. AI search is off by default. If you turn it on, only the sentence you type and today's date are sent, to the service you choose, or to a model on your own Mac. Everything else (files, tags, searches, settings) stays on your Mac.
 
 ## Safety
 
-Filetor works on real files: it copies, moves, renames and trashes them. It is early software. Try it on a test folder first and keep backups of anything important.
+Filetor works on real files: it copies, moves, renames and trashes them. Keep backups of anything important, and try a new tool on a test folder first.
 
 ## About
 
