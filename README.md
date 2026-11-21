@@ -10,6 +10,14 @@ I made it for my own work, where I move and compare files between folders, disks
 
 Filetor also includes the functions of my two other apps, [Konverter](https://github.com/davidpraznik/Konverter) (convert, optimize and clean images) and [Archivator](https://github.com/davidpraznik/Archivator) (compress and extract archives), so that the file work I do as a UX/UI designer happens in one app. Konverter and Archivator remain separate apps.
 
+## Search with a sentence
+
+Type what you need in the search field, for example "VectorCraft and Illustrator files from last week" or "photos from last week". Filetor turns the sentence into filters for name, kind, date and size. The searches you repeat most often appear under Try asking. The microphone button starts macOS Dictation in the field. AI search is optional and off by default.
+
+<p align="center">
+  <img src="docs/filetor-ai-search-v3.png" alt="Filetor search field with suggested searches" width="80%">
+</p>
+
 ## Features
 
 **Browsing**

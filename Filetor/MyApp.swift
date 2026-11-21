@@ -54,6 +54,8 @@ import SwiftUI
                     .keyboardShortcut("k", modifiers: .command)
                 Button("Search") { app.activateSearch() }
                     .keyboardShortcut("f", modifiers: .command)
+                Button("Go to Folder…") { app.openGoTo() }
+                    .keyboardShortcut("g", modifiers: [.command, .shift])
                 Button("Customize Toolbar…") { app.showCustomize = true }
                 Button("Restore Toolbar Defaults") { app.toolbarModel.restoreDefaults() }
             }

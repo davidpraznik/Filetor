@@ -292,6 +292,39 @@ struct SettingsSheet: View {
                                     scale: s)
                 }
             }
+            group("Local") {
+                row("Address") {
+                    TextField("Address", text: $aiLocalAddress)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 220 * s)
+                }
+                row("Model") {
+                    if localModels.isEmpty {
+                        TextField("Model", text: $aiLocalModel)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 220 * s)
+                    } else {
+                        Picker("", selection: $aiLocalModel) {
+                            ForEach(localModels, id: \.self) { Text($0).tag($0) }
+                        }
+                        .labelsHidden()
+                        .fixedSize()
+                        .frame(width: 220 * s, alignment: .trailing)
+                    }
+                }
+                row(localStatus.isEmpty ? "Look for installed models" : localStatus, last: true) {
+                    Button("Find models") {
+                        Task {
+                            let result = await AIStore.localModels(address: aiLocalAddress)
+                            localModels = result.models
+                            localStatus = result.message
+                            if aiLocalModel.isEmpty || !result.models.contains(aiLocalModel) { aiLocalModel = result.models.first ?? aiLocalModel }
+                        }
+                    }
+                    .buttonStyle(PathsButtonStyle(scale: s))
+                }
+            }
+            .opacity(aiProvider == AIProvider.other.rawValue ? 0.55 : 1)
             group("Other") {
                 row("Address", "OpenAI, Gemini, Mistral, Groq, OpenRouter or any OpenAI-compatible service") {
                     TextField("https://api.openai.com/v1", text: $aiOtherURL)
@@ -326,39 +359,6 @@ struct SettingsSheet: View {
                 }
             }
             .opacity(aiProvider == AIProvider.local.rawValue ? 0.55 : 1)
-            group("Local") {
-                row("Address") {
-                    TextField("Address", text: $aiLocalAddress)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 220 * s)
-                }
-                row("Model") {
-                    if localModels.isEmpty {
-                        TextField("Model", text: $aiLocalModel)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 220 * s)
-                    } else {
-                        Picker("", selection: $aiLocalModel) {
-                            ForEach(localModels, id: \.self) { Text($0).tag($0) }
-                        }
-                        .labelsHidden()
-                        .fixedSize()
-                        .frame(width: 220 * s, alignment: .trailing)
-                    }
-                }
-                row(localStatus.isEmpty ? "Look for installed models" : localStatus, last: true) {
-                    Button("Find models") {
-                        Task {
-                            let result = await AIStore.localModels(address: aiLocalAddress)
-                            localModels = result.models
-                            localStatus = result.message
-                            if aiLocalModel.isEmpty || !result.models.contains(aiLocalModel) { aiLocalModel = result.models.first ?? aiLocalModel }
-                        }
-                    }
-                    .buttonStyle(PathsButtonStyle(scale: s))
-                }
-            }
-            .opacity(aiProvider == AIProvider.other.rawValue ? 0.55 : 1)
             group("Privacy") {
                 switchRow("Send file contents", subtitle: "Off: only names, dates, sizes and kinds are sent", isOn: $aiSendContents, last: true)
             }

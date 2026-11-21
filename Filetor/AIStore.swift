@@ -204,14 +204,21 @@ extension AIStore {
         {"name": string or null, "extensions": [strings], "modified_after": "YYYY-MM-DD" or null, "modified_before": "YYYY-MM-DD" or null, "min_size_mb": number or null, "max_size_mb": number or null}
         Rules:
         - name: only the distinctive words that should appear in the file name (a company, a person, a project), separated by spaces. Leave out generic words such as file, document, invoice and their translations. null if there are none.
-        - extensions: lowercase, without a dot. Fill it only when the request names a kind of file (pdf, images, spreadsheets, videos). Images are jpg, jpeg, png, heic, gif, webp. Otherwise [].
-        - modified_after is the first day of the period, modified_before is the last day, both inclusive. "last year" or "lani" means the previous calendar year, "last March" or "lanskega marca" means March of the previous calendar year, "this month" means the current month, "last week" means the previous week.
+        - extensions: lowercase, without a dot. Fill it only when the request names a kind of file (pdf, images, spreadsheets, videos). Images and photos are jpg, jpeg, png, heic, gif, webp. Otherwise [].
+        - Design files: vector files are svg, ai, eps, vectorcraft. Illustrator files are ai. Photoshop files are psd, psb. VectorCraft files are vectorcraft. FigCraft files are figcraft. Figma files are fig. Sketch files are sketch. InDesign files are indd, idml.
+        - modified_after is the first day of the period, modified_before is the last day, both inclusive. "last year" or "lani" means the previous calendar year, "last March" or "lanskega marca" means March of the previous calendar year, "this month" means the current month, "last week" means the previous week, "yesterday" or "včeraj" means the previous day (both dates the same day). A request may name several kinds of file at once; list all their extensions.
         - Sizes in megabytes. "večji od", "larger than", "bigger than", "over", "nad" set min_size_mb. "manjši od", "smaller than", "under", "pod" set max_size_mb.
         - Set a field only when the request says it. Never invent dates or sizes. Without a time expression both dates are null.
         Examples:
         "pdf večji od 5 MB" -> {"name": null, "extensions": ["pdf"], "modified_after": null, "modified_before": null, "min_size_mb": 5, "max_size_mb": null}
         "slike manjše od 2 MB" -> {"name": null, "extensions": ["jpg","jpeg","png","heic","gif","webp"], "modified_after": null, "modified_before": null, "min_size_mb": null, "max_size_mb": 2}
         "račun za Elektro iz lanskega marca" (today 2026-11-21) -> {"name": "Elektro", "extensions": [], "modified_after": "2025-03-01", "modified_before": "2025-03-31", "min_size_mb": null, "max_size_mb": null}
+        "VectorCraft and Illustrator files from last week" (today 2026-11-21) -> {"name": null, "extensions": ["vectorcraft","ai"], "modified_after": "2026-11-09", "modified_before": "2026-11-15", "min_size_mb": null, "max_size_mb": null}
+        "Vector files from yesterday" (today 2026-11-21) -> {"name": null, "extensions": ["svg","ai","eps","vectorcraft"], "modified_after": "2026-11-20", "modified_before": "2026-11-20", "min_size_mb": null, "max_size_mb": null}
+        "Photos from last week" (today 2026-11-21) -> {"name": null, "extensions": ["jpg","jpeg","png","heic","gif","webp"], "modified_after": "2026-11-09", "modified_before": "2026-11-15", "min_size_mb": null, "max_size_mb": null}
+        "PDFs from last week" (today 2026-11-21) -> {"name": null, "extensions": ["pdf"], "modified_after": "2026-11-09", "modified_before": "2026-11-15", "min_size_mb": null, "max_size_mb": null}
+        "PSD files from yesterday" (today 2026-11-21) -> {"name": null, "extensions": ["psd"], "modified_after": "2026-11-20", "modified_before": "2026-11-20", "min_size_mb": null, "max_size_mb": null}
+        "PSD files with the name fitness" -> {"name": "fitness", "extensions": ["psd"], "modified_after": null, "modified_before": null, "min_size_mb": null, "max_size_mb": null}
         "zip files from this month" (today 2026-11-21) -> {"name": null, "extensions": ["zip"], "modified_after": "2026-11-01", "modified_before": "2026-11-30", "min_size_mb": null, "max_size_mb": null}
         """
     }

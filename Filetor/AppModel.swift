@@ -59,9 +59,16 @@ final class AppModel {
 
     func activateSearch() {
         showPalette = false
+        showGoTo = false
         showSearchPopup = true
     }
     var showSearchPopup = false
+    var showGoTo = false
+    func openGoTo() {
+        showPalette = false
+        showSearchPopup = false
+        showGoTo = true
+    }
     var showPalette = false
     var showConnect = false
     let favorites = FavoritesStore()

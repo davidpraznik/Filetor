@@ -36,6 +36,8 @@ final class PaneModel: Identifiable {
     var aiQuery: AIQuery? { didSet { restartSearch() } }
     var aiAsking = false
     var aiMessage: String?
+    /// The sentence the AI last read, so Enter can tell whether the shown result is still current.
+    var lastAsked = ""
 
     @ObservationIgnored private var aiTask: Task<Void, Never>?
     @ObservationIgnored private var aiDebounce: Task<Void, Never>?
@@ -67,16 +69,18 @@ final class PaneModel: Identifiable {
         aiTask?.cancel()
         aiAsking = true
         aiMessage = nil
+        lastAsked = prompt
         aiTask = Task { [weak self] in
             let result = await AIStore.interpret(prompt)
             guard !Task.isCancelled, let self else { return }
-            self.aiAsking = false
             switch result {
             case .success(let query):
+                SearchHistory.record(prompt)
                 self.aiQuery = query
             case .failure(let failure):
                 self.aiMessage = failure.message
             }
+            self.aiAsking = false
         }
     }
 

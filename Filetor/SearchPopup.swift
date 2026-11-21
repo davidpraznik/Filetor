@@ -8,6 +8,10 @@ struct SearchPopup: View {
     @AppStorage("textSize") private var textSize = 1
     @AppStorage("aiProvider") private var aiProvider = 0
     @State private var appeared = false
+    @State private var listening = false
+    @State private var closeWhenDone = false
+    @State private var historyVersion = 0
+    @State private var silenceTask: Task<Void, Never>?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var s: CGFloat { UIScale.value(textSize) }
@@ -18,9 +22,62 @@ struct SearchPopup: View {
         Color(red: 0.55, green: 0.36, blue: 0.96),
         Color(red: 0.93, green: 0.28, blue: 0.60),
     ]
-    private static let suggestions = ["PDFs larger than 5 MB", "Images from last month", "Videos over 100 MB", "Changed this week"]
+    /// Deeper violet used for the soft glow, so it stays calm and see-through.
+    private static let glow = Color(red: 0.36, green: 0.20, blue: 0.78)
+    private static let defaultSuggestions = ["VectorCraft and Illustrator files from last week", "PDFs from last week", "Photos from last week", "Zip files from this month"]
+
+    /// Searches you repeat (at least twice) come first, the rest is filled with the standard examples.
+    private var suggestions: [String] {
+        _ = historyVersion
+        var list = SearchHistory.frequent(4)
+        for text in Self.defaultSuggestions where list.count < 4 {
+            if !list.contains(where: { $0.caseInsensitiveCompare(text) == .orderedSame }) { list.append(text) }
+        }
+        return list
+    }
 
     private func close() { app.showSearchPopup = false }
+
+    /// Starts or stops the macOS Dictation in the search field (same as pressing the Dictation shortcut).
+    private func stopListening() {
+        silenceTask?.cancel()
+        listening = false
+        NSApp.sendAction(Selector(("stopDictation:")), to: nil, from: nil)
+    }
+
+    private func toggleDictation() {
+        if listening {
+            stopListening()
+        } else {
+            focused = true
+            listening = true
+            DispatchQueue.main.async {
+                // If nothing handles the action (Dictation not available), the mic does not stay in the listening state.
+                if !NSApp.sendAction(Selector(("startDictation:")), to: nil, from: nil) { listening = false }
+            }
+        }
+    }
+
+    private var micButton: some View {
+        Button { toggleDictation() } label: {
+            ZStack(alignment: .topTrailing) {
+                Image(systemName: listening ? "mic.fill" : "mic")
+                    .font(.system(size: 16 * s, weight: .medium))
+                    .foregroundStyle(LinearGradient(colors: Self.aiColors, startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .shadow(color: listening ? Self.glow.opacity(0.55) : .clear, radius: 6)
+                Image(systemName: "sparkle")
+                    .font(.system(size: 7 * s, weight: .bold))
+                    .foregroundStyle(Self.aiColors[2])
+                    .shadow(color: listening ? Self.glow.opacity(0.55) : .clear, radius: 4)
+                    .symbolEffect(.pulse, isActive: listening && !reduceMotion)
+                    .offset(x: 5 * s, y: -3 * s)
+            }
+            .frame(width: 24 * s, height: 24 * s)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(listening ? "Stop dictation" : "Dictate")
+    }
 
     private func ask(_ text: String, pane: PaneModel) {
         pane.filter = text
@@ -65,13 +122,24 @@ struct SearchPopup: View {
                         .font(.system(size: 16 * s))
                         .focused($focused)
                         .onSubmit {
-                            if aiOn, pane.filter.split(separator: " ").count >= 2 { pane.askAI(pane.filter) }
-                            close()
+                            if listening { stopListening() }
+                            guard aiOn, pane.filter.split(separator: " ").count >= 2 else { close(); return }
+                            let text = pane.filter.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if pane.aiAsking {
+                                closeWhenDone = true
+                            } else if pane.aiQuery != nil, pane.aiMessage == nil, pane.lastAsked == text {
+                                close()
+                            } else {
+                                closeWhenDone = true
+                                pane.askAI(text)
+                            }
                         }
+                    if aiOn { micButton }
                     if !pane.filter.isEmpty {
                         Button { pane.clearAI() } label: { Image(systemName: "xmark.circle.fill") }
                             .buttonStyle(.plain)
                             .foregroundStyle(.secondary)
+                            .frame(width: 38 * s)
                     } else {
                         Text("esc")
                             .font(.system(size: 11 * s))
@@ -80,6 +148,7 @@ struct SearchPopup: View {
                             .padding(.vertical, 3)
                             .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.06)))
                             .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.primary.opacity(0.1)))
+                            .frame(width: 38 * s)
                     }
                     Rectangle().fill(Color.primary.opacity(0.1)).frame(width: 1, height: 20 * s)
                     Button { pane.searchSubfolders.toggle() } label: {
@@ -100,7 +169,7 @@ struct SearchPopup: View {
                             .font(.system(size: 11.5 * s, weight: .semibold))
                             .foregroundStyle(.secondary)
                         SuggestionFlow(spacing: 8) {
-                            ForEach(Self.suggestions, id: \.self) { text in
+                            ForEach(suggestions, id: \.self) { text in
                                 Button { ask(text, pane: pane) } label: {
                                     Text(text)
                                         .font(.system(size: 13 * s))
@@ -110,20 +179,28 @@ struct SearchPopup: View {
                                         .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color.primary.opacity(0.12)))
                                 }
                                 .buttonStyle(.plain)
+                                .contextMenu {
+                                    if SearchHistory.frequent(50).contains(text) {
+                                        Button("Remove from suggestions") {
+                                            SearchHistory.remove(text)
+                                            historyVersion += 1
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
-                } else if aiOn, pane.aiAsking || pane.aiQuery != nil || pane.aiMessage != nil {
+                } else if aiOn, pane.aiAsking || pane.aiQuery != nil || pane.aiMessage != nil || pane.filter.split(separator: " ").count >= 2 {
                     Divider()
                     HStack(alignment: .top, spacing: 8) {
                         Image(systemName: "sparkles")
                             .font(.system(size: 12 * s))
                             .foregroundStyle(LinearGradient(colors: Self.aiColors, startPoint: .topLeading, endPoint: .bottomTrailing))
                             .padding(.top, 4 * s)
-                        if pane.aiAsking {
+                        if pane.aiAsking || (pane.aiQuery == nil && pane.aiMessage == nil) {
                             Text("Reading your request…").foregroundStyle(.secondary).padding(.top, 2 * s)
                         } else if let query = pane.aiQuery {
                             SuggestionFlow(spacing: 6) {
@@ -138,6 +215,7 @@ struct SearchPopup: View {
                         }
                     }
                     .font(.system(size: 12.5 * s))
+                    .frame(minHeight: 26 * s, alignment: .top)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10 * s)
                 }
@@ -158,21 +236,46 @@ struct SearchPopup: View {
             .clipShape(RoundedRectangle(cornerRadius: 14.5))
             .padding(aiOn ? 2 : 0)
             .background {
-                if aiOn { ring(asking: pane.aiAsking) }
+                if aiOn {
+                    ring(asking: pane.aiAsking)
+                        .opacity(pane.aiAsking ? 1 : 0)
+                        .animation(.easeOut(duration: 0.25), value: pane.aiAsking)
+                }
             }
             .overlay {
-                if !aiOn { RoundedRectangle(cornerRadius: 14.5).strokeBorder(Color.primary.opacity(0.12)) }
+                if !aiOn || !pane.aiAsking { RoundedRectangle(cornerRadius: 14.5).strokeBorder(Color.primary.opacity(0.12)) }
             }
             .frame(width: 560 * s)
             .shadow(color: .black.opacity(0.3), radius: 24, y: 10)
-            .shadow(color: aiOn ? Self.aiColors[1].opacity(pane.aiAsking ? 0.45 : 0.18) : .clear, radius: 22)
+            .shadow(color: aiOn && pane.aiAsking ? Self.glow.opacity(0.28) : .clear, radius: 22)
             .scaleEffect(reduceMotion || appeared ? 1 : 0.97, anchor: .top)
             .padding(.top, 92)
         }
         .onAppear {
-            focused = true
             withAnimation(.easeOut(duration: 0.16)) { appeared = true }
+            DispatchQueue.main.async { focused = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { focused = true }
         }
+        .onChange(of: pane.filter) {
+            guard listening else { return }
+            // Dictation sends no "silence" signal. When the text stops changing for a moment, stop listening.
+            silenceTask?.cancel()
+            silenceTask = Task {
+                try? await Task.sleep(for: .seconds(1.5))
+                guard !Task.isCancelled, listening else { return }
+                stopListening()
+            }
+        }
+        .onChange(of: pane.aiAsking) { _, asking in
+            if asking {
+                if listening { stopListening() }
+            } else if closeWhenDone {
+                closeWhenDone = false
+                // Close only when the AI understood the sentence. On an error the popup stays open with the message.
+                if pane.aiMessage == nil { close() }
+            }
+        }
+        .onChange(of: focused) { _, isFocused in if !isFocused { listening = false } }
     }
 
     private func key(_ text: String) -> some View {
@@ -182,6 +285,55 @@ struct SearchPopup: View {
             .padding(.vertical, 1)
             .background(RoundedRectangle(cornerRadius: 5).fill(Color.primary.opacity(0.06)))
             .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Color.primary.opacity(0.1)))
+    }
+}
+
+/// Remembers the searches asked through the AI, on this Mac only.
+enum SearchHistory {
+    private struct Entry: Codable {
+        var text: String
+        var count: Int
+        var last: Date
+    }
+
+    private static let key = "aiSearchHistory"
+
+    private static func load() -> [Entry] {
+        guard let data = UserDefaults.standard.data(forKey: key),
+              let entries = try? JSONDecoder().decode([Entry].self, from: data) else { return [] }
+        return entries
+    }
+
+    static func record(_ text: String) {
+        let clean = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clean.isEmpty else { return }
+        var entries = load()
+        if let index = entries.firstIndex(where: { $0.text.caseInsensitiveCompare(clean) == .orderedSame }) {
+            entries[index].count += 1
+            entries[index].text = clean
+            entries[index].last = Date()
+        } else {
+            entries.append(Entry(text: clean, count: 1, last: Date()))
+        }
+        if entries.count > 50 {
+            entries.sort { ($0.count, $0.last) > ($1.count, $1.last) }
+            entries = Array(entries.prefix(50))
+        }
+        if let data = try? JSONEncoder().encode(entries) { UserDefaults.standard.set(data, forKey: key) }
+    }
+
+    static func remove(_ text: String) {
+        let entries = load().filter { $0.text.caseInsensitiveCompare(text) != .orderedSame }
+        if let data = try? JSONEncoder().encode(entries) { UserDefaults.standard.set(data, forKey: key) }
+    }
+
+    /// The most used searches, only those asked at least twice.
+    static func frequent(_ limit: Int) -> [String] {
+        load()
+            .filter { $0.count >= 2 }
+            .sorted { ($0.count, $0.last) > ($1.count, $1.last) }
+            .prefix(limit)
+            .map(\.text)
     }
 }
 
