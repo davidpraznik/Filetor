@@ -86,7 +86,7 @@ struct CustomToolbar: View {
             let base = geo.size.width - 28 - transfersWidth
             let first = split(available: base)
             let parts = first.hidden.isEmpty ? first : split(available: base - 40 * s)
-            let hiddenButtons = parts.hidden.filter { $0.kind != "flex" && $0.kind != "space" && $0.kind != "title" && $0.kind != "search" && $0.kind != "view" }
+            let hiddenButtons = parts.hidden.filter { $0.kind != "flex" && $0.kind != "space" && $0.kind != "title" }
 
             HStack(alignment: .center, spacing: 6) {
                 if model.entries.isEmpty {
@@ -105,8 +105,8 @@ struct CustomToolbar: View {
                         }
                     } label: {
                         Image(systemName: "chevron.right.2")
-                            .font(.system(size: 16 * s, weight: .light))
-                            .foregroundStyle(Color.primary.opacity(0.6))
+                            .font(.system(size: 16 * s, weight: .regular))
+                            .foregroundStyle(Color.primary.opacity(0.75))
                             .frame(width: 32 * s, height: 30 * s)
                     }
                     .menuStyle(.borderlessButton)
@@ -139,6 +139,14 @@ struct CustomToolbar: View {
         if entry.kind == "backfwd" {
             Button("Back") { app.active.goBack() }.disabled(!app.active.canGoBack)
             Button("Forward") { app.active.goForward() }.disabled(!app.active.canGoForward)
+        } else if entry.kind == "search" {
+            Button("Search…") { app.activateSearch() }
+        } else if entry.kind == "view" {
+            Menu("View") {
+                Button("As List") { app.active.viewMode = 0 }
+                Button("As Icons") { app.active.viewMode = 1 }
+                Button("As Columns") { app.active.viewMode = 2 }
+            }
         } else if let def = ToolCatalog.def(entry.kind) {
             Button(def.title) { def.run(app) }
                 .disabled(isDisabled(def))
@@ -220,7 +228,7 @@ struct CustomToolbar: View {
         case "search":
             @Bindable var pane = app.active
             VStack(spacing: 3) {
-                FilterField(text: $pane.filter, subfolders: $pane.searchSubfolders, focusTrigger: app.focusSearch)
+                FilterField(text: $pane.filter, subfolders: $pane.searchSubfolders, focusTrigger: app.focusSearch, onAsk: { pane.askAI(pane.filter) })
                     .onAppear { app.searchFieldVisible = true; app.showFilterBar = false }
                     .onDisappear { app.searchFieldVisible = false }
                 if model.showLabels {
@@ -299,20 +307,29 @@ struct FilterField: View {
     @Binding var text: String
     var subfolders: Binding<Bool>?
     var focusTrigger = 0
+    var onAsk: (() -> Void)? = nil
     @AppStorage("textSize") private var textSize = 1
+    @AppStorage("aiProvider") private var aiProvider = 0
     @FocusState private var focused: Bool
 
     var body: some View {
         let s = UIScale.value(textSize)
         HStack(spacing: 4) {
             Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-            TextField("Filter selected pane", text: $text).textFieldStyle(.plain)
+            TextField(aiProvider != 0 && onAsk != nil ? "Filter or ask AI" : "Filter selected pane", text: $text).textFieldStyle(.plain)
                 .focused($focused)
+                .onSubmit { if aiProvider != 0, !text.isEmpty { onAsk?() } }
                 .onChange(of: focusTrigger) { _, _ in focused = true }
             if !text.isEmpty {
                 Button { text = "" } label: { Image(systemName: "xmark.circle.fill") }
                     .buttonStyle(.plain)
                     .foregroundStyle(.secondary)
+            }
+            if let onAsk, aiProvider != 0, !text.isEmpty {
+                Button { onAsk() } label: { Image(systemName: "sparkles") }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color.filetor)
+                    .help("Ask AI (↩)")
             }
             if let subfolders {
                 Button { subfolders.wrappedValue.toggle() } label: {

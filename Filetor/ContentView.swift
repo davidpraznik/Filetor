@@ -71,8 +71,10 @@ struct ContentView: View {
         .overlay {
             ZStack {
                 if app.showPalette { CommandPalette(app: app).transition(.opacity) }
+                if app.showSearchPopup { SearchPopup(app: app).transition(.opacity) }
             }
             .animation(app.showPalette ? .easeOut(duration: 0.16) : .easeIn(duration: 0.10), value: app.showPalette)
+            .animation(app.showSearchPopup ? .easeOut(duration: 0.16) : .easeIn(duration: 0.10), value: app.showSearchPopup)
         }
         .onAppear {
             Self.applyAppearance(appearance)
@@ -95,6 +97,8 @@ struct ContentView: View {
                 Button("Reload") { app.active.load() }.keyboardShortcut("r", modifiers: [.command, .option])
                 if app.showPalette {
                     Button("Close Palette") { app.showPalette = false }.keyboardShortcut(.escape, modifiers: [])
+                } else if app.showSearchPopup {
+                    Button("Close Search") { app.showSearchPopup = false }.keyboardShortcut(.escape, modifiers: [])
                 } else if app.showShortcuts {
                     Button("Close Shortcuts") { app.showShortcuts = false }.keyboardShortcut(.escape, modifiers: [])
                 }

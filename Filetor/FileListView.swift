@@ -5,15 +5,24 @@ struct FileListView: View {
     let app: AppModel
 
     @AppStorage("textSize") private var textSize = 1
-    @AppStorage("compactRows") private var compactRows = false
+    @AppStorage("foldersFirst") private var foldersFirst = true
     @AppStorage("striped") private var striped = true
     @AppStorage("statusBar") private var statusBar = true
+    @AppStorage("listIconSize") private var listIconSize = 17.0
+    @AppStorage("showExtensions") private var showExtensions = true
+    @AppStorage("iconPreviews") private var iconPreviews = false
+    @AppStorage("themedFolders") private var themedFolders = false
+    @AppStorage("folderColor") private var folderColor = "multi"
     var isActive = false
     var onNewTab: () -> Void = {}
+
+    /// Icon size in the icon view follows the Row size slider (14...40 maps to 32...128).
+    private var gridIconSide: CGFloat { 32 + CGFloat(min(listIconSize, 40) - 14) / 26 * 96 }
 
     private var scale: CGFloat { UIScale.value(textSize) }
 
     var body: some View {
+        let _ = foldersFirst   // re-sort the lists as soon as the setting changes
         VStack(spacing: 0) {
             BreadcrumbBar(pane: pane, app: app, onNewTab: onNewTab)
             Divider()
@@ -21,6 +30,7 @@ struct FileListView: View {
                 FilterBar(pane: pane, app: app, scale: scale)
                 Divider()
             }
+            AIQueryBar(pane: pane, scale: scale)
             table
             if statusBar || pane.searchActive {
                 Divider()
@@ -43,7 +53,7 @@ struct FileListView: View {
     @ViewBuilder
     private var table: some View {
         if pane.viewMode == 1 {
-            IconGridView(pane: pane, scale: scale)
+            IconGridView(pane: pane, scale: scale, foldersFirst: foldersFirst, gridIconSize: gridIconSide, showExtensions: showExtensions, iconPreviews: iconPreviews, themed: themedFolders, tint: FolderTint.index(folderColor))
         } else if pane.viewMode == 2 {
             ColumnsView(pane: pane, scale: scale)
         } else {
@@ -59,7 +69,13 @@ struct FileListView: View {
             sortOrder: pane.sortOrder,
             scale: scale,
             striped: striped,
-            compact: compactRows,
+            compact: false,
+            iconSize: CGFloat(min(listIconSize, 40)),
+            showExtensions: showExtensions,
+            previews: iconPreviews,
+            themed: themedFolders,
+            tint: FolderTint.index(folderColor),
+            loading: pane.loading,
             showFolder: pane.searchActive || pane.tagFilter != nil
         )
         .overlay {
@@ -103,6 +119,7 @@ struct FilterBar: View {
     @Bindable var pane: PaneModel
     let app: AppModel
     let scale: CGFloat
+    @AppStorage("aiProvider") private var aiProvider = 0
     @FocusState private var focused: Bool
 
     private func close() {
@@ -114,9 +131,10 @@ struct FilterBar: View {
         HStack(spacing: 8) {
             HStack(spacing: 4) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                TextField("Filter selected pane", text: $pane.filter)
+                TextField(aiProvider != 0 ? "Filter or ask AI" : "Filter selected pane", text: $pane.filter)
                     .textFieldStyle(.plain)
                     .focused($focused)
+                    .onSubmit { if aiProvider != 0, !pane.filter.isEmpty { pane.askAI(pane.filter) } }
                     .onKeyPress(.escape) { close(); return .handled }
                 if !pane.filter.isEmpty {
                     Button { pane.filter = "" } label: { Image(systemName: "xmark.circle.fill") }
@@ -128,6 +146,12 @@ struct FilterBar: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 4 * scale)
             .background(Color.primary.opacity(0.07), in: RoundedRectangle(cornerRadius: 8))
+            if aiProvider != 0, !pane.filter.isEmpty {
+                Button { pane.askAI(pane.filter) } label: { Image(systemName: "sparkles") }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color.filetor)
+                    .help("Ask AI (↩)")
+            }
             Picker("", selection: $pane.searchSubfolders) {
                 Text("This folder").tag(false)
                 Text("Subfolders").tag(true)
@@ -144,5 +168,44 @@ struct FilterBar: View {
         .padding(.vertical, 5)
         .onAppear { focused = true }
         .onChange(of: app.filterBarFocus) { _, _ in focused = true }
+    }
+}
+
+// MARK: - Search described in words
+
+/// Shows what the AI understood from a sentence: the filters as chips, or a short message when it failed.
+struct AIQueryBar: View {
+    @Bindable var pane: PaneModel
+    let scale: CGFloat
+
+    var body: some View {
+        if pane.aiAsking || pane.aiQuery != nil || pane.aiMessage != nil {
+            VStack(spacing: 0) {
+                HStack(spacing: 8) {
+                    Image(systemName: "sparkles").foregroundStyle(Color.filetor)
+                    if pane.aiAsking {
+                        ProgressView().controlSize(.small)
+                        Text("Reading your request…").foregroundStyle(.secondary)
+                    } else if let query = pane.aiQuery {
+                        ForEach(query.chips, id: \.self) { chip in
+                            AIChip(text: chip, scale: scale)
+                        }
+                        Text("in this folder and its subfolders").foregroundStyle(.secondary).lineLimit(1)
+                    } else if let message = pane.aiMessage {
+                        Text(message).foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 0)
+                    if !pane.aiAsking {
+                        Button("Clear") { pane.clearAI() }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(Color.filetor)
+                    }
+                }
+                .font(.system(size: 12 * scale))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6 * scale)
+                Divider()
+            }
+        }
     }
 }

@@ -90,7 +90,7 @@ struct DropStackList: NSViewRepresentable {
             let url = urls[row]
             let cell = NSTableCellView()
 
-            let icon = NSImageView(image: NSWorkspace.shared.icon(forFile: url.path))
+            let icon = NSImageView(image: ThemedFolderIcon.icon(forFile: url, side: 20 * s))
             icon.translatesAutoresizingMaskIntoConstraints = false
 
             let text = NSTextField(labelWithString: url.lastPathComponent)

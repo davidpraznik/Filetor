@@ -11,6 +11,8 @@ struct Place: Identifiable, Hashable {
 struct SidebarView: View {
     let app: AppModel
     @AppStorage("textSize") private var textSize = 1
+    @AppStorage("themedFolders") private var themedFolders = false
+    @AppStorage("folderColor") private var folderColor = "multi"
 
     private var favorites: [Place] { app.favorites.urls.map { app.favorites.place(for: $0) } }
 
@@ -175,10 +177,18 @@ struct SidebarView: View {
                 let on = pane.tagFilter == nil
                     && pane.currentURL.standardizedFileURL.path == p.url.standardizedFileURL.path
                 HStack(spacing: 8 * s) {
-                    Image(systemName: p.icon)
-                        .font(.system(size: 12.5 * s))
-                        .foregroundStyle(Color.filetor)
-                        .frame(width: 20 * s)
+                    if isFavorites, themedFolders, ["folder", "menubar.dock.rectangle", "doc", "arrow.down.circle", "house", "square.grid.2x2"].contains(p.icon) {
+                        Image(nsImage: ThemedFolderIcon.image(FolderTheme(folderName: p.name) ?? .plain, side: 22 * s, glyph: false))
+                            .resizable()
+                            .interpolation(.high)
+                            .frame(width: 20 * s, height: 20 * s)
+                            .id(folderColor)
+                    } else {
+                        Image(systemName: p.icon)
+                            .font(.system(size: 12.5 * s))
+                            .foregroundStyle(Color.filetor)
+                            .frame(width: 20 * s)
+                    }
                     Text(p.name)
                         .font(.system(size: 13 * s))
                         .foregroundStyle(Color.primary)

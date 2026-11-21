@@ -11,7 +11,7 @@ final class PaneModel: Identifiable {
         KeyPathComparator(\FileItem.name, comparator: .localizedStandard)
     ]
     var errorMessage: String?
-    var filter = "" { didSet { if searchSubfolders { restartSearch() } } }
+    var filter = "" { didSet { filterChanged() } }
     /// Search the filter text in all subfolders instead of only filtering the current folder.
     var searchSubfolders = UserDefaults.standard.bool(forKey: "searchSubfolders") {
         didSet {
@@ -31,7 +31,63 @@ final class PaneModel: Identifiable {
     @ObservationIgnored private var tagTask: Task<Void, Never>?
     var title: String { tagFilter ?? CloudLocation.title(for: currentURL) }
     @ObservationIgnored private var searchTask: Task<Void, Never>?
-    var searchActive: Bool { tagFilter == nil && searchSubfolders && !filter.isEmpty }
+    var searchActive: Bool { tagFilter == nil && (aiQuery != nil || (searchSubfolders && !filter.isEmpty)) }
+    /// A search the AI turned from a sentence into filters. Searches all subfolders of the current folder.
+    var aiQuery: AIQuery? { didSet { restartSearch() } }
+    var aiAsking = false
+    var aiMessage: String?
+
+    @ObservationIgnored private var aiTask: Task<Void, Never>?
+    @ObservationIgnored private var aiDebounce: Task<Void, Never>?
+
+    /// Typing a sentence (two or more words) asks the AI after a short pause. A single word only filters by name.
+    private func filterChanged() {
+        aiDebounce?.cancel()
+        let aiOn = UserDefaults.standard.integer(forKey: "aiProvider") != 0
+        let words = filter.split(separator: " ").count
+        if aiOn && words >= 2 {
+            aiDebounce = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled, let self else { return }
+                self.askAI(self.filter)
+            }
+        } else {
+            aiTask?.cancel()
+            aiAsking = false
+            aiMessage = nil
+            if aiQuery != nil { aiQuery = nil }
+            else if searchSubfolders { restartSearch() }
+        }
+    }
+
+    func askAI(_ text: String) {
+        let prompt = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !prompt.isEmpty else { return }
+        aiDebounce?.cancel()
+        aiTask?.cancel()
+        aiAsking = true
+        aiMessage = nil
+        aiTask = Task { [weak self] in
+            let result = await AIStore.interpret(prompt)
+            guard !Task.isCancelled, let self else { return }
+            self.aiAsking = false
+            switch result {
+            case .success(let query):
+                self.aiQuery = query
+            case .failure(let failure):
+                self.aiMessage = failure.message
+            }
+        }
+    }
+
+    func clearAI() {
+        aiDebounce?.cancel()
+        aiTask?.cancel()
+        aiAsking = false
+        aiMessage = nil
+        aiQuery = nil
+        filter = ""
+    }
     /// 0 = list, 1 = icons, 2 = columns (columns not built yet, shows the list)
     var viewMode = 0
     var showHidden = UserDefaults.standard.bool(forKey: "showHidden")
@@ -88,11 +144,26 @@ final class PaneModel: Identifiable {
         return out
     }
 
-    private func readChildren(_ dir: URL) -> [FileItem] {
-        guard let urls = try? FileManager.default.contentsOfDirectory(
-            at: dir, includingPropertiesForKeys: FileItem.keys, options: showHidden ? [] : [.skipsHiddenFiles]
-        ) else { return [] }
-        return urls.map { FileItem(url: $0) }
+    /// Folders whose content is still being read (a network disk can take a while). The list shows a spinner for them.
+    var loading = Set<URL>()
+
+    /// Reads a folder in the background, so a slow disk never blocks the window.
+    /// The file attributes are fetched together with the names, so building the items afterwards is quick.
+    private func loadChildren(_ dir: URL, showLoader: Bool) {
+        if showLoader { loading.insert(dir) }
+        let hidden = showHidden
+        let keys = FileItem.keys
+        Task { [weak self] in
+            let urls = await Task.detached(priority: .userInitiated) { () -> [URL] in
+                (try? FileManager.default.contentsOfDirectory(
+                    at: dir, includingPropertiesForKeys: keys, options: hidden ? [] : [.skipsHiddenFiles]
+                )) ?? []
+            }.value
+            guard let self else { return }
+            self.loading.remove(dir)
+            guard self.expanded.contains(dir) else { return }
+            self.children[dir] = urls.map { FileItem(url: $0) }
+        }
     }
 
     func toggleExpanded(_ url: URL) {
@@ -101,25 +172,25 @@ final class PaneModel: Identifiable {
 
     func expand(_ url: URL) {
         guard treeActive else { return }
-        children[url] = readChildren(url)
         expanded.insert(url)
+        loadChildren(url, showLoader: true)
     }
 
     func collapse(_ url: URL) {
         let prefix = url.path + "/"
         expanded = expanded.filter { $0 != url && !$0.path.hasPrefix(prefix) }
         children = children.filter { $0.key != url && !$0.key.path.hasPrefix(prefix) }
+        loading = loading.filter { $0 != url && !$0.path.hasPrefix(prefix) }
         selection = selection.filter { !$0.path.hasPrefix(prefix) }
     }
 
     /// Re-reads the content of the open folders that are inside the folder shown now.
     private func rebuildChildren() {
         let base = currentURL.path == "/" ? "/" : currentURL.path + "/"
-        var fresh: [URL: [FileItem]] = [:]
-        for url in expanded where url.path.hasPrefix(base) && FileManager.default.fileExists(atPath: url.path) {
-            fresh[url] = readChildren(url)
+        for url in expanded where url.path.hasPrefix(base) {
+            // The old rows stay until the new ones are read, so the list does not flicker.
+            loadChildren(url, showLoader: children[url] == nil)
         }
-        children = fresh
     }
 
     init(url: URL? = nil) {
@@ -138,6 +209,8 @@ final class PaneModel: Identifiable {
         forwardStack.removeAll()
         currentURL = target
         filter = ""
+        aiQuery = nil
+        aiMessage = nil
         load()
     }
 
@@ -347,10 +420,11 @@ final class PaneModel: Identifiable {
         searching = true
         let root = currentURL.standardizedFileURL
         let query = filter
+        let ai = aiQuery
         let hidden = showHidden
         let stream = AsyncStream<SearchBatch> { cont in
             let worker = Task.detached(priority: .userInitiated) {
-                Self.scan(root: root, query: query, hidden: hidden, into: cont)
+                Self.scan(root: root, query: query, ai: ai, hidden: hidden, into: cont)
                 cont.finish()
             }
             cont.onTermination = { _ in worker.cancel() }
@@ -372,19 +446,22 @@ final class PaneModel: Identifiable {
         }
     }
 
-    nonisolated private static func scan(root: URL, query: String, hidden: Bool, into cont: AsyncStream<SearchBatch>.Continuation) {
+    nonisolated private static func scan(root: URL, query: String, ai: AIQuery?, hidden: Bool, into cont: AsyncStream<SearchBatch>.Continuation) {
         var options: FileManager.DirectoryEnumerationOptions = [.skipsPackageDescendants]
         if !hidden { options.insert(.skipsHiddenFiles) }
         guard let en = FileManager.default.enumerator(
-            at: root, includingPropertiesForKeys: [.isDirectoryKey], options: options) else { return }
+            at: root, includingPropertiesForKeys: AIQuery.resourceKeys, options: options) else { return }
         var batch: [URL] = []
         var folders = 0
         var found = 0
         var last = Date()
         while let url = en.nextObject() as? URL {
             if Task.isCancelled { return }
-            if (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true { folders += 1 }
-            if url.lastPathComponent.localizedCaseInsensitiveContains(query) {
+            let values = try? url.resourceValues(forKeys: Set(AIQuery.resourceKeys))
+            if values?.isDirectory == true { folders += 1 }
+            let hit: Bool
+            if let ai { hit = values.map { ai.matches(url, $0) } ?? false } else { hit = url.lastPathComponent.localizedCaseInsensitiveContains(query) }
+            if hit {
                 batch.append(url)
                 found += 1
                 if found >= 5000 { break }

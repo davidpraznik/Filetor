@@ -5,6 +5,8 @@ import QuickLookThumbnailing
 struct InfoPanel: View {
     let app: AppModel
     @AppStorage("textSize") private var textSize = 1
+    @AppStorage("themedFolders") private var themedFolders = false
+    @AppStorage("folderColor") private var folderColor = "multi"
     @State private var totalSize: Int64?
     @State private var thumbnail: NSImage?
 
@@ -62,9 +64,10 @@ struct InfoPanel: View {
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                         .shadow(color: .black.opacity(0.15), radius: 2, y: 1)
                 } else {
-                    Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
+                    Image(nsImage: ThemedFolderIcon.icon(forFile: url, side: 84 * s))
                         .resizable()
                         .frame(width: 84 * s, height: 84 * s)
+                        .id("\(themedFolders)\(folderColor)")
                 }
                 Spacer()
             }

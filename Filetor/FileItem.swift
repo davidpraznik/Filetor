@@ -6,6 +6,8 @@ struct FileItem: Identifiable, Hashable {
     let isDirectory: Bool
     /// A bundle such as an app: it is a folder on disk but shown as one file.
     let isPackage: Bool
+    /// An alias or a symbolic link.
+    let isLink: Bool
     var size: Int64
     /// True once the total size of a folder has been calculated.
     var sizeCalculated = false
@@ -21,6 +23,13 @@ struct FileItem: Identifiable, Hashable {
 
     var id: URL { url }
 
+    /// The name as shown in lists: without the extension when the extensions are turned off. Folders keep their full name.
+    func displayName(showExtension: Bool) -> String {
+        if showExtension || (isDirectory && !isPackage) { return name }
+        let base = (name as NSString).deletingPathExtension
+        return base.isEmpty ? name : base
+    }
+
     /// A folder whose content can be opened in place in the list.
     var expandable: Bool { isDirectory && !isPackage }
 
@@ -28,7 +37,7 @@ struct FileItem: Identifiable, Hashable {
     var tagsText: String { tags.joined(separator: " ") }
 
     static let keys: [URLResourceKey] = [
-        .isDirectoryKey, .isPackageKey, .fileSizeKey, .contentModificationDateKey, .localizedTypeDescriptionKey,
+        .isDirectoryKey, .isPackageKey, .isAliasFileKey, .isSymbolicLinkKey, .fileSizeKey, .contentModificationDateKey, .localizedTypeDescriptionKey,
         .creationDateKey, .addedToDirectoryDateKey, .contentAccessDateKey, .tagNamesKey
     ]
 
@@ -38,6 +47,7 @@ struct FileItem: Identifiable, Hashable {
         self.name = url.lastPathComponent
         self.isDirectory = v?.isDirectory ?? false
         self.isPackage = v?.isPackage ?? false
+        self.isLink = (v?.isAliasFile ?? false) || (v?.isSymbolicLink ?? false)
         self.size = Int64(v?.fileSize ?? 0)
         self.modified = v?.contentModificationDate ?? .distantPast
         self.kind = v?.localizedTypeDescription ?? ""

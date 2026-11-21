@@ -6,10 +6,20 @@ struct BreadcrumbBar: View {
     let app: AppModel
     let onNewTab: () -> Void
     @AppStorage("textSize") private var textSize = 1
+    @AppStorage("themedFolders") private var themedFolders = false
+    @AppStorage("folderColor") private var folderColor = "multi"
     @State private var contentWidth: CGFloat = 0
     @State private var viewWidth: CGFloat = 0
 
     private var s: CGFloat { UIScale.value(textSize) }
+
+    private func crumbIcon(_ url: URL) -> NSImage {
+        _ = folderColor
+        if themedFolders, let style = ThemedFolderIcon.style(for: FileItem(url: url)) {
+            return ThemedFolderIcon.image(style.theme, side: 15 * s, glyph: false, link: style.link)
+        }
+        return NSWorkspace.shared.icon(forFile: url.path)
+    }
 
     /// Shows the end of a long path, or the start when everything fits. Runs again whenever the pane is resized,
     /// so an offset from an earlier, narrower layout never sticks.
@@ -111,8 +121,9 @@ struct BreadcrumbBar: View {
                                         .font(.system(size: 12 * s))
                                         .foregroundStyle(Color.primary.opacity(0.55))
                                 } else {
-                                    Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
+                                    Image(nsImage: crumbIcon(url))
                                         .resizable()
+                                        .interpolation(.high)
                                         .frame(width: 15 * s, height: 15 * s)
                                 }
                                 Text(i == 0 ? rootName : url.lastPathComponent)

@@ -73,6 +73,7 @@ struct CommandPalette: View {
     @State private var index = 0
     @FocusState private var focused: Bool
     @AppStorage("textSize") private var textSize = 1
+    @AppStorage("aiProvider") private var aiProvider = 0
     @State private var appeared = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -85,7 +86,16 @@ struct CommandPalette: View {
         let prefix = pairs.filter { q.isEmpty || $0.cmd.title.lowercased().hasPrefix(q.lowercased()) }
         let rest = pairs.filter { !(q.isEmpty || $0.cmd.title.lowercased().hasPrefix(q.lowercased())) }
         let ordered = prefix + rest
-        return ordered.filter(\.enabled) + ordered.filter { !$0.enabled }
+        var list = ordered.filter(\.enabled) + ordered.filter { !$0.enabled }
+        // A sentence can be sent to the AI as a search. It comes first when no command matches, otherwise last.
+        if aiProvider != 0, q.split(separator: " ").count >= 2 {
+            let ask = AppCommand(id: "askAI", title: "Search with AI: \(q)") { app in
+                app.active.filter = q
+                app.active.askAI(q)
+            }
+            if matches.isEmpty { list = [(cmd: ask, enabled: true)] } else { list.append((cmd: ask, enabled: true)) }
+        }
+        return list
     }
 
     private func run(_ i: Int) {
@@ -105,7 +115,7 @@ struct CommandPalette: View {
             VStack(spacing: 0) {
                 HStack(spacing: 10) {
                     Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                    TextField("Search actions…", text: $query)
+                    TextField(aiProvider != 0 ? "Search actions or ask AI…" : "Search actions…", text: $query)
                         .textFieldStyle(.plain)
                         .font(.system(size: 16 * s))
                         .focused($focused)

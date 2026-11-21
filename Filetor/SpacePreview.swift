@@ -272,7 +272,7 @@ struct SpacePreviewPanel: View {
     }
 
     private func icon(_ e: PreviewEntry) -> NSImage {
-        if !isArchive { return NSWorkspace.shared.icon(forFile: e.path) }
+        if !isArchive { return ThemedFolderIcon.icon(forFile: URL(fileURLWithPath: e.path), side: 18 * s) }
         if e.isDirectory { return NSWorkspace.shared.icon(for: .folder) }
         let ext = (e.name as NSString).pathExtension
         return NSWorkspace.shared.icon(for: UTType(filenameExtension: ext) ?? .data)
@@ -289,7 +289,7 @@ struct SpacePreviewPanel: View {
                     .foregroundStyle(Color.filetor)
                     .help("Back")
                 }
-                Image(nsImage: isArchive ? NSWorkspace.shared.icon(forFile: url.path) : NSWorkspace.shared.icon(forFile: folder.path))
+                Image(nsImage: isArchive ? NSWorkspace.shared.icon(forFile: url.path) : ThemedFolderIcon.icon(forFile: folder, side: 28 * s))
                     .resizable().frame(width: 28 * s, height: 28 * s)
                 Text(title).font(.system(size: 20 * s, weight: .medium)).lineLimit(1).truncationMode(.middle)
                 if isArchive {

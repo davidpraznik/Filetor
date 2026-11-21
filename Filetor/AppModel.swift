@@ -58,9 +58,10 @@ final class AppModel {
     var filterBarFocus = 0
 
     func activateSearch() {
-        if searchFieldVisible { focusSearch += 1 }
-        else { showFilterBar = true; filterBarFocus += 1 }
+        showPalette = false
+        showSearchPopup = true
     }
+    var showSearchPopup = false
     var showPalette = false
     var showConnect = false
     let favorites = FavoritesStore()

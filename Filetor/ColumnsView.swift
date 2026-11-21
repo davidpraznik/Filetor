@@ -50,6 +50,8 @@ private struct ColumnList: View {
     let selected: URL?
     let onSelect: (FileItem) -> Void
     let open: (FileItem) -> Void
+    @AppStorage("themedFolders") private var themedFolders = false
+    @AppStorage("folderColor") private var folderColor = "multi"
 
     private var items: [FileItem] {
         let opts: FileManager.DirectoryEnumerationOptions = showHidden ? [] : [.skipsHiddenFiles]
@@ -65,9 +67,10 @@ private struct ColumnList: View {
                 ForEach(items) { item in
                     let on = selected == item.url
                     HStack(spacing: 6 * scale) {
-                        Image(nsImage: NSWorkspace.shared.icon(forFile: item.url.path))
+                        Image(nsImage: ThemedFolderIcon.icon(forFile: item.url, side: 17 * scale))
                             .resizable()
                             .frame(width: 17 * scale, height: 17 * scale)
+                            .id("\(themedFolders)\(folderColor)")
                         Text(item.name).lineLimit(1)
                         Spacer(minLength: 0)
                         if item.isDirectory {

@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import Quartz
+import QuickLookThumbnailing
 
 /// AppKit file list: flat full-width stripes that run to the bottom, right-aligned Size column and header.
 struct FileTableView: NSViewRepresentable {
@@ -12,6 +13,12 @@ struct FileTableView: NSViewRepresentable {
     let scale: CGFloat
     let striped: Bool
     let compact: Bool
+    let iconSize: CGFloat
+    let showExtensions: Bool
+    let previews: Bool
+    let themed: Bool
+    let tint: Int
+    let loading: Set<URL>
     var showFolder = false
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
@@ -98,15 +105,20 @@ struct FileTableView: NSViewRepresentable {
         c.parent = self
         guard let table = c.table else { return }
 
-        let settings = [scale, striped ? 1 : 0, compact ? 1 : 0]
+        let settings = [scale, striped ? 1 : 0, compact ? 1 : 0, iconSize, showExtensions ? 1 : 0, previews ? 1 : 0, themed ? 1 : 0, CGFloat(tint)]
         let settingsChanged = settings != c.lastSettings
         let itemsChanged = items != c.items
         c.lastSettings = settings
         let oldItems = c.items
+        let oldLoading = c.loading
+        c.loading = loading
         c.items = items
 
         table.usesAlternatingRowBackgroundColors = striped
-        table.rowHeight = (compact ? 20 : 25) * scale
+        // A larger icon makes the row taller. At the default size the rows stay as they were.
+        // The row grows with the icon and keeps some air above and below: 8 pt at the default size, 0.4 pt more per extra point.
+        let rowPadding = 8 + max(0, iconSize - 17) * 0.4
+        table.rowHeight = max((compact ? 20 : 25) * scale, iconSize > 17 ? (iconSize + rowPadding) * scale : 0)
 
         c.syncing = true
         if let first = sortOrder.first {
@@ -132,6 +144,13 @@ struct FileTableView: NSViewRepresentable {
                 table.reloadData()
             }
         }
+        // A folder started or finished reading: only its row changes (arrow or spinner).
+        if loading != oldLoading, !itemsChanged, !settingsChanged, !c.renaming {
+            let changed = items.indices.filter { oldLoading.contains(items[$0].url) != loading.contains(items[$0].url) }
+            if !changed.isEmpty {
+                table.reloadData(forRowIndexes: IndexSet(changed), columnIndexes: IndexSet(integersIn: 0..<table.numberOfColumns))
+            }
+        }
         // Rename happens in the row. Only the pane that holds the item starts it (the active one when both do).
         if let target = app.renameTarget, !c.renaming, items.contains(where: { $0.url == target }),
            pane === app.active || !app.active.items.contains(where: { $0.url == target }) {
@@ -147,6 +166,7 @@ struct FileTableView: NSViewRepresentable {
 
     final class Coordinator: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSMenuDelegate, NSTextFieldDelegate, QLPreviewPanelDataSource, QLPreviewPanelDelegate {
         var parent: FileTableView
+        var loading = Set<URL>()
         weak var table: NSTableView?
         var items: [FileItem] = []
         var lastSettings: [CGFloat] = []
@@ -302,6 +322,9 @@ struct FileTableView: NSViewRepresentable {
         var renaming = false
         var needsReload = false
         private var renameOriginal = ""
+        private var renameShown = ""
+        /// Extension (with the dot) that is not shown while renaming and is added back when the name is confirmed.
+        private var renameExtension = ""
 
         func beginInlineRename(_ url: URL) {
             guard !renaming, let table,
@@ -312,6 +335,10 @@ struct FileTableView: NSViewRepresentable {
                   let field = cell.textField else { return }
             renaming = true
             renameOriginal = items[row].name
+            renameShown = field.stringValue
+            let hidesExtension = !parent.showExtensions && !(items[row].isDirectory && !items[row].isPackage)
+            let editedName = hidesExtension ? items[row].displayName(showExtension: false) : renameOriginal
+            renameExtension = hidesExtension ? String(renameOriginal.dropFirst(editedName.count)) : ""
             field.isEditable = true
             field.isSelectable = true
             field.isBezeled = true
@@ -321,9 +348,11 @@ struct FileTableView: NSViewRepresentable {
             field.textColor = .textColor
             (field.cell as? NSTextFieldCell)?.backgroundStyle = .normal
             field.delegate = self
-            field.stringValue = renameOriginal
+            field.stringValue = editedName
             table.window?.makeFirstResponder(field)
-            if let editor = field.currentEditor() {
+            if hidesExtension {
+                field.currentEditor()?.selectedRange = NSRange(location: 0, length: (editedName as NSString).length)
+            } else if let editor = field.currentEditor() {
                 let name = renameOriginal as NSString
                 let ext = name.pathExtension
                 let keepAll = items[row].isDirectory || ext.isEmpty || name.length == ext.count + 1
@@ -335,12 +364,14 @@ struct FileTableView: NSViewRepresentable {
             guard renaming, let field = obj.object as? NSTextField else { return }
             renaming = false
             let cancelled = (obj.userInfo?["NSTextMovement"] as? Int) == NSTextMovement.cancel.rawValue
-            let newName = field.stringValue
+            var newName = field.stringValue
+            if !renameExtension.isEmpty, !newName.lowercased().hasSuffix(renameExtension.lowercased()) { newName += renameExtension }
+            renameExtension = ""
             field.isEditable = false
             field.isSelectable = false
             field.isBezeled = false
             field.drawsBackground = false
-            field.stringValue = renameOriginal
+            field.stringValue = renameShown
             table?.window?.makeFirstResponder(table)
             if cancelled {
                 parent.app.renameTarget = nil
@@ -385,7 +416,7 @@ struct FileTableView: NSViewRepresentable {
             guard let col = tableColumn, row < items.count else { return nil }
             let item = items[row]
             let s = parent.scale
-            let font = NSFont.systemFont(ofSize: 13 * s)
+            let font = NSFont.systemFont(ofSize: (13 + max(0, parent.iconSize - 17) * 0.2) * s)
             let id = col.identifier
 
             let cell = NSTableCellView()
@@ -399,17 +430,39 @@ struct FileTableView: NSViewRepresentable {
             switch id.rawValue {
             case "name":
                 let icon = NSImageView()
+                icon.imageScaling = .scaleProportionallyUpOrDown
                 icon.image = NSWorkspace.shared.icon(forFile: item.url.path)
+                let iconSide = parent.iconSize * s
+                if parent.themed, let style = ThemedFolderIcon.style(for: item) {
+                    icon.image = ThemedFolderIcon.image(style.theme, side: iconSide, link: style.link)
+                }
+                if parent.previews, !item.isDirectory {
+                    Self.loadPreview(of: item, side: iconSide, into: icon)
+                }
                 icon.translatesAutoresizingMaskIntoConstraints = false
                 cell.addSubview(icon)
                 cell.imageView = icon
-                text.stringValue = item.name
+                text.stringValue = item.displayName(showExtension: parent.showExtensions)
                 // In the plain list, folders open in place: a small arrow in front of the icon, one step in per level.
                 var iconLeading: CGFloat = 8
                 if parent.pane.treeActive {
                     let x0 = 4 + CGFloat(parent.pane.level(of: item.url)) * 18 * s
                     iconLeading = x0 + 16 * s + 2
-                    if item.expandable {
+                    if item.expandable, parent.pane.loading.contains(item.url) {
+                        let spinner = NSProgressIndicator()
+                        spinner.style = .spinning
+                        spinner.controlSize = .small
+                        spinner.isIndeterminate = true
+                        spinner.translatesAutoresizingMaskIntoConstraints = false
+                        cell.addSubview(spinner)
+                        NSLayoutConstraint.activate([
+                            spinner.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: x0 + 1),
+                            spinner.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+                            spinner.widthAnchor.constraint(equalToConstant: 14 * s),
+                            spinner.heightAnchor.constraint(equalToConstant: 14 * s),
+                        ])
+                        spinner.startAnimation(nil)
+                    } else if item.expandable {
                         let open = parent.pane.expanded.contains(item.url)
                         let arrow = NSButton()
                         arrow.isBordered = false
@@ -433,8 +486,8 @@ struct FileTableView: NSViewRepresentable {
                 NSLayoutConstraint.activate([
                     icon.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: iconLeading),
                     icon.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
-                    icon.widthAnchor.constraint(equalToConstant: 17 * s),
-                    icon.heightAnchor.constraint(equalToConstant: 17 * s),
+                    icon.widthAnchor.constraint(equalToConstant: iconSide),
+                    icon.heightAnchor.constraint(equalToConstant: iconSide),
                     text.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 6),
                     text.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -4),
                     text.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
@@ -570,6 +623,29 @@ struct FileTableView: NSViewRepresentable {
             return true
         }
 
+        private static let previewCache = NSCache<NSString, NSImage>()
+
+        /// Replaces the plain file icon with a preview of the file, read in the background.
+        static func loadPreview(of item: FileItem, side: CGFloat, into icon: NSImageView) {
+            // Previews are read in steps of 16 points, so dragging the size slider does not start a new read per step.
+            let side = (side / 16).rounded(.up) * 16
+            let key = "\(item.url.path)|\(Int(side))|\(item.modified.timeIntervalSince1970)" as NSString
+            if let hit = previewCache.object(forKey: key) { icon.image = hit; return }
+            let request = QLThumbnailGenerator.Request(
+                fileAt: item.url,
+                size: CGSize(width: side, height: side),
+                scale: NSScreen.main?.backingScaleFactor ?? 2,
+                representationTypes: .thumbnail
+            )
+            Task { @MainActor in
+                if let rep = try? await QLThumbnailGenerator.shared.generateBestRepresentation(for: request) {
+                    let image = rep.nsImage
+                    previewCache.setObject(image, forKey: key)
+                    icon.image = image
+                }
+            }
+        }
+
         enum BlockChange {
             case inserted(Range<Int>)
             case removed(Range<Int>)
@@ -593,13 +669,14 @@ struct FileTableView: NSViewRepresentable {
             guard let table else { return }
             let folderRow: Int
             NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = 0.16
+                ctx.duration = 0.32
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
                 table.beginUpdates()
                 switch change {
                 case .inserted(let r):
                     table.insertRows(at: IndexSet(integersIn: r), withAnimation: [.effectFade, .slideDown])
                 case .removed(let r):
-                    table.removeRows(at: IndexSet(integersIn: r), withAnimation: [.effectFade, .slideUp])
+                    table.removeRows(at: IndexSet(integersIn: r), withAnimation: [.slideUp])
                 }
                 table.endUpdates()
             }
