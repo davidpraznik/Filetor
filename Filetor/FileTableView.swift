@@ -807,6 +807,10 @@ struct FileTableView: NSViewRepresentable {
                 menu.addItem(.separator())
                 menu.addItem(item("Rotate Left") { [weak self] in self?.parent.app.rotateImages(urls, degrees: 270) })
                 menu.addItem(item("Rotate Right") { [weak self] in self?.parent.app.rotateImages(urls, degrees: 90) })
+                menu.addItem(item("Convert…") { [weak self] in
+                    let images = urls.filter { FileTools.isImage($0) }
+                    self?.parent.app.convertURLs = images.isEmpty ? nil : images
+                })
                 let conv = NSMenuItem(title: "Convert Image", action: nil, keyEquivalent: "")
                 let sub = NSMenu()
                 var formats = [("PNG", "png", "png"), ("JPEG", "jpeg", "jpg"), ("HEIC", "heic", "heic"), ("TIFF", "tiff", "tiff")]
@@ -825,6 +829,7 @@ struct FileTableView: NSViewRepresentable {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(paths, forType: .string)
             })
+            menu.addItem(item("Touch") { [weak self] in self?.parent.app.touch(urls) })
             menu.addItem(item("Get Info") { [weak self] in self?.parent.app.getInfo(urls) })
             let shareItems = urls.sorted { $0.path < $1.path }
             let shareMenu = NSMenu()

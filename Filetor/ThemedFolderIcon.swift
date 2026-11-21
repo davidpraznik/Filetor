@@ -47,8 +47,10 @@ enum FolderTheme: CaseIterable {
         case "applications", "aplikacije", "programi": self = .applications
         default:
             let words = n.components(separatedBy: CharacterSet.alphanumerics.inverted).filter { !$0.isEmpty }
-            if n.hasSuffix("_dev") || n.hasSuffix("-dev") || words.contains("projekti") { self = .code }
-            else if words.contains("design") || words.contains("designs") { self = .designs }
+            // A keyword counts only in short names ("Projekti 2026", "Web design"). In a long name it is part of a title.
+            let short = words.count <= 3
+            if n.hasSuffix("_dev") || n.hasSuffix("-dev") || (short && words.contains("projekti")) { self = .code }
+            else if short && (words.contains("design") || words.contains("designs")) { self = .designs }
             else { return nil }
         }
     }

@@ -217,7 +217,7 @@ struct SettingsSheet: View {
                             .buttonStyle(PathsButtonStyle(scale: s, prominent: true))
                     }
                 }
-                row(app.updater.checking ? "Checking…" : app.updater.message, last: true) {
+                row(app.updater.checking ? "Checking…" : app.updater.message, "Version \(app.updater.installed)", last: true) {
                     HStack(spacing: 8) {
                         if app.updater.checking { ProgressView().controlSize(.small) }
                         Button("Check for updates") { Task { await app.updater.check() } }
