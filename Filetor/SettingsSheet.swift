@@ -3,7 +3,7 @@ import ServiceManagement
 import UniformTypeIdentifiers
 
 enum SettingsPage: String, CaseIterable, Identifiable {
-    case general = "General", appearance = "Appearance", rows = "Rows", window = "Window", folderAccess = "Folder Access", ai = "AI", about = "About"
+    case general = "General", appearance = "Appearance", rows = "Rows", window = "Window", sorting = "Sorting", folderAccess = "Folder Access", ai = "AI", about = "About"
     var id: String { rawValue }
     var symbol: String {
         switch self {
@@ -11,6 +11,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .appearance: "circle.lefthalf.filled"
         case .rows: "list.bullet"
         case .window: "sidebar.left"
+        case .sorting: "tray.full"
         case .folderAccess: "folder"
         case .ai: "sparkles"
         case .about: "info.circle"
@@ -42,6 +43,7 @@ struct SettingsSheet: View {
     @AppStorage("networkSearch") private var networkSearch = true
     @AppStorage("sortDownloads") private var sortDownloads = false
     @State private var sortFolders = DownloadsSorter.folders.map(\.path)
+    @State private var sortRules = DownloadsSorter.rules
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var page: SettingsPage = .general
     @AppStorage("aiProvider") private var aiProvider = 0
@@ -95,6 +97,138 @@ struct SettingsSheet: View {
         row(title, subtitle, last: last) {
             Toggle("", isOn: isOn).labelsHidden().toggleStyle(PillSwitchStyle(scale: s))
         }
+    }
+
+    // MARK: Sorting page
+
+    private func sortSection<C: View>(_ label: String, last: Bool = false, @ViewBuilder _ content: () -> C) -> some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 8 * s) {
+                Text(label).font(.system(size: 11 * s)).foregroundStyle(.secondary)
+                content()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12 * s)
+            if !last { Divider() }
+        }
+    }
+
+    private func saveSortFolders() {
+        DownloadsSorter.folders = sortFolders.map { URL(filePath: $0, directoryHint: .isDirectory) }
+    }
+
+    private func chooseFolder() -> String? {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Choose"
+        guard panel.runModal() == .OK, let url = panel.url else { return nil }
+        return url.path
+    }
+
+    @ViewBuilder private var sortingContent: some View {
+        group {
+            row("Sort files into folders automatically", "Sorts the files in the folders below, now and as new ones arrive.") {
+                Toggle("", isOn: Binding(
+                    get: { sortDownloads },
+                    set: { on in
+                        sortDownloads = on
+                        app.downloadSorter.setEnabled(on)
+                    })).labelsHidden().toggleStyle(PillSwitchStyle(scale: s))
+            }
+            sortSection("Folders") {
+                VStack(spacing: 0) {
+                    ForEach(sortFolders, id: \.self) { path in
+                        HStack(spacing: 10) {
+                            Image(systemName: "folder.fill").foregroundStyle(Color.filetor)
+                            Text((path as NSString).abbreviatingWithTildeInPath).lineLimit(1).truncationMode(.middle)
+                            Spacer(minLength: 8)
+                            Button {
+                                sortFolders.removeAll { $0 == path }
+                                saveSortFolders()
+                            } label: { Image(systemName: "xmark").foregroundStyle(.secondary) }
+                                .buttonStyle(.plain)
+                                .help("Remove this folder")
+                        }
+                        .padding(.vertical, 5 * s)
+                    }
+                }
+                HStack(spacing: 12) {
+                    Text("Folders on a disk that is not connected wait until it is back.")
+                        .font(.system(size: 11 * s)).foregroundStyle(.secondary)
+                    Spacer(minLength: 8)
+                    Button("Add Folder…") {
+                        guard let path = chooseFolder(), !sortFolders.contains(path) else { return }
+                        sortFolders.append(path)
+                        saveSortFolders()
+                        if sortDownloads { app.downloadSorter.rescan() }
+                    }
+                    .buttonStyle(PathsButtonStyle(scale: s))
+                    .fixedSize()
+                }
+            }
+            sortSection("Rules") {
+                if !sortRules.isEmpty {
+                    HStack(spacing: 8) {
+                        Text("Match").frame(width: 124 * s, alignment: .leading)
+                        Text("Value").frame(width: 104 * s, alignment: .leading)
+                        Text("Move to").frame(maxWidth: .infinity, alignment: .leading)
+                        Color.clear.frame(width: 14 * s, height: 1)
+                    }
+                    .font(.system(size: 11 * s))
+                    .foregroundStyle(.secondary)
+                }
+                ForEach($sortRules) { $rule in
+                    HStack(spacing: 8) {
+                        Picker("", selection: $rule.kind) {
+                            Text("Extension").tag(SortRule.Kind.ext)
+                            Text("Name contains").tag(SortRule.Kind.name)
+                        }
+                        .labelsHidden()
+                        .frame(width: 124 * s)
+                        TextField(rule.kind == .ext ? "psd, ai" : "invoice", text: $rule.value)
+                            .textFieldStyle(PathsTextFieldStyle(scale: s))
+                            .frame(width: 104 * s)
+                        HStack(spacing: 6) {
+                            TextField("Folder name or path", text: $rule.folder)
+                                .textFieldStyle(.plain)
+                            Button {
+                                if let path = chooseFolder() { rule.folder = (path as NSString).abbreviatingWithTildeInPath }
+                            } label: { Image(systemName: "folder").foregroundStyle(.secondary) }
+                                .buttonStyle(.plain)
+                                .help("Choose a folder")
+                        }
+                        .padding(.horizontal, 10 * s)
+                        .padding(.vertical, 6 * s)
+                        .background(RoundedRectangle(cornerRadius: 7).fill(Color(nsColor: .textBackgroundColor)))
+                        .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Color.primary.opacity(0.18)))
+                        Button {
+                            let id = rule.id
+                            sortRules.removeAll { $0.id == id }
+                        } label: { Image(systemName: "xmark").foregroundStyle(.secondary) }
+                            .buttonStyle(.plain)
+                            .frame(width: 14 * s)
+                            .help("Remove this rule")
+                    }
+                }
+                HStack(spacing: 12) {
+                    Text(sortRules.isEmpty ? "No rules yet. Files go into the folders by type." : "Checked first, top to bottom.")
+                        .font(.system(size: 11 * s)).foregroundStyle(.secondary)
+                    Spacer(minLength: 8)
+                    Button("Add Rule") { sortRules.append(SortRule()) }
+                        .buttonStyle(PathsButtonStyle(scale: s))
+                        .fixedSize()
+                }
+            }
+            sortSection("Everything else goes by type", last: true) {
+                Text("Images, Documents, Archives, Installers, Video, Audio, 3D Models, Fonts, Design, Scripts")
+                    .font(.system(size: 11 * s)).foregroundStyle(.secondary)
+            }
+        }
+        .onChange(of: sortRules) { _, new in DownloadsSorter.rules = new }
     }
 
     private func folderCard(_ title: String, _ subtitle: String, _ image: NSImage, selected: Bool, action: @escaping () -> Void) -> some View {
@@ -213,37 +347,6 @@ struct SettingsSheet: View {
                 switchRow("Open with two panes", isOn: $startDual)
                 switchRow("Show hidden files", isOn: $showHidden, last: true)
             }
-            group("Downloads") {
-                switchRow("Sort files into folders automatically", subtitle: "Images, Documents, Archives, Installers, Video, Audio, 3D Models, Fonts, Design and Scripts get their own folder. The files already there are sorted when you switch it on, then new ones as they arrive.", isOn: Binding(
-                    get: { sortDownloads },
-                    set: { on in
-                        sortDownloads = on
-                        app.downloadSorter.setEnabled(on)
-                    }), last: sortFolders.isEmpty && !sortDownloads)
-                ForEach(Array(sortFolders.enumerated()), id: \.element) { index, path in
-                    row((path as NSString).abbreviatingWithTildeInPath, nil, last: false) {
-                        Button("Remove") {
-                            sortFolders.remove(at: index)
-                            DownloadsSorter.folders = sortFolders.map { URL(filePath: $0, directoryHint: .isDirectory) }
-                        }
-                        .buttonStyle(PathsButtonStyle(scale: s))
-                    }
-                }
-                row("Folders to sort", "Each folder gets the same subfolders. A folder on a disk that is not connected waits until it is back.", last: true) {
-                    Button("Add Folder…") {
-                        let panel = NSOpenPanel()
-                        panel.canChooseDirectories = true
-                        panel.canChooseFiles = false
-                        panel.allowsMultipleSelection = false
-                        panel.prompt = "Add"
-                        guard panel.runModal() == .OK, let url = panel.url, !sortFolders.contains(url.path) else { return }
-                        sortFolders.append(url.path)
-                        DownloadsSorter.folders = sortFolders.map { URL(filePath: $0, directoryHint: .isDirectory) }
-                        if sortDownloads { app.downloadSorter.rescan() }
-                    }
-                    .buttonStyle(PathsButtonStyle(scale: s))
-                }
-            }
             group("Updates") {
                 switchRow("Check for updates automatically", isOn: $autoUpdate)
                 if case .available(let version, let url) = app.updater.state {
@@ -339,6 +442,8 @@ struct SettingsSheet: View {
                 }
                 switchRow("Show labels", isOn: $tb.showLabels, last: true)
             }
+        case .sorting:
+            sortingContent
         case .folderAccess:
             FolderAccessBox(scale: s)
         case .ai:
