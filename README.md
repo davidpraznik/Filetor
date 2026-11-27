@@ -143,7 +143,7 @@ The builds are not signed with a paid Apple Developer account, so macOS drops th
 
 ## Privacy
 
-Filetor does not collect any telemetry, analytics or usage data. The only network request the app makes by itself is the update check, which asks GitHub for the latest release number. You can turn it off in Settings. AI search is off by default. If you turn it on, only the sentence you type and today's date are sent, to the service you choose, or to a model on your own Mac. Everything else (files, tags, searches, settings) stays on your Mac.
+Filetor does not collect any telemetry, analytics or usage data. The only request the app makes to the internet by itself is the update check, which asks GitHub for the latest release number. You can turn it off in Settings. On your local network, Filetor looks for file servers (Bonjour, and a check of port 445 on the addresses of your own subnet) so they can be listed under Shared. This search only connects to devices in your home or office network and sends nothing to anyone. macOS asks for permission for it the first time. AI search is off by default. If you turn it on, only the sentence you type and today's date are sent, to the service you choose, or to a model on your own Mac. Everything else (files, tags, searches, settings) stays on your Mac.
 
 ## Safety
 
