@@ -147,7 +147,11 @@ final class AppModel {
         transfers.onFinished = { [weak self] in self?.refresh() }
         transfers.onError = { [weak self] message in self?.alert = message }
         transfers.onCompleted = { [weak self] move, records, batch in self?.recordTransferUndo(move: move, records: records, batch: batch) }
-        restoreSession()
+        // Only the first window restores the saved folders; windows opened later start fresh.
+        if Self.sessionOwner == nil {
+            Self.sessionOwner = self
+            restoreSession()
+        }
         for name in [NSApplication.willTerminateNotification, NSApplication.didResignActiveNotification] {
             NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.saveSession() }
@@ -157,8 +161,13 @@ final class AppModel {
 
     // MARK: Session restore
 
+    private static weak var sessionOwner: AppModel?
+
     /// Saves the open folders and tabs of both panes (restored on next launch).
     func saveSession() {
+        // With several windows, one of them owns the saved session (the first one, or whichever saves after it was closed).
+        if Self.sessionOwner == nil { Self.sessionOwner = self }
+        guard Self.sessionOwner === self else { return }
         let data: [String: Any] = [
             "tabs": groups.map { $0.tabs.map { $0.currentURL.path } },
             "selected": groups.map(\.selected),

@@ -1,8 +1,25 @@
 import SwiftUI
 
-@main struct FiletorApp: App {
+/// The model of the window that is in front. Menu commands act on it.
+struct FocusedAppKey: FocusedValueKey { typealias Value = AppModel }
+extension FocusedValues {
+    var appModel: AppModel? {
+        get { self[FocusedAppKey.self] }
+        set { self[FocusedAppKey.self] = newValue }
+    }
+}
+
+/// Content of one window. Every window (⌘N) has its own AppModel, so windows do not mirror each other.
+struct WindowRoot: View {
     @State private var app = AppModel()
 
+    var body: some View {
+        ContentView(app: app)
+            .focusedSceneValue(\.appModel, app)
+    }
+}
+
+@main struct FiletorApp: App {
     init() {
         // Filetor has its own tabs; the system tab bar would draw over the toolbar.
         NSWindow.allowsAutomaticWindowTabbing = false
@@ -10,42 +27,58 @@ import SwiftUI
 
     var body: some Scene {
         WindowGroup {
-            ContentView(app: app)
+            WindowRoot()
         }
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1100, height: 700)
         .commands {
-            CommandGroup(after: .newItem) {
+            FiletorCommands()
+        }
+    }
+}
+
+struct FiletorCommands: Commands {
+    @FocusedValue(\.appModel) private var focused: AppModel?
+
+    var body: some Commands {
+        CommandGroup(after: .newItem) {
+            if let app = focused {
                 Button("New Tab") { app.newTab() }
                     .keyboardShortcut("t", modifiers: .command)
             }
-            CommandGroup(replacing: .appInfo) {
-                Button("About Filetor") {
-                    let link = "https://github.com/\(UpdateChecker.repo)"
-                    let credits = NSMutableAttributedString(
-                        string: "github.com/\(UpdateChecker.repo)",
-                        attributes: [
-                            .link: URL(string: link)!,
-                            .font: NSFont.systemFont(ofSize: 11),
-                        ]
-                    )
-                    let center = NSMutableParagraphStyle()
-                    center.alignment = .center
-                    credits.addAttribute(.paragraphStyle, value: center, range: NSRange(location: 0, length: credits.length))
-                    NSApp.orderFrontStandardAboutPanel(options: [.credits: credits])
-                }
+        }
+        CommandGroup(replacing: .appInfo) {
+            Button("About Filetor") {
+                let link = "https://github.com/\(UpdateChecker.repo)"
+                let credits = NSMutableAttributedString(
+                    string: "github.com/\(UpdateChecker.repo)",
+                    attributes: [
+                        .link: URL(string: link)!,
+                        .font: NSFont.systemFont(ofSize: 11),
+                    ]
+                )
+                let center = NSMutableParagraphStyle()
+                center.alignment = .center
+                credits.addAttribute(.paragraphStyle, value: center, range: NSRange(location: 0, length: credits.length))
+                NSApp.orderFrontStandardAboutPanel(options: [.credits: credits])
             }
-            CommandGroup(replacing: .undoRedo) {
+        }
+        CommandGroup(replacing: .undoRedo) {
+            if let app = focused {
                 Button(app.undoTitle ?? "Undo") { app.undo() }
                     .keyboardShortcut("z", modifiers: .command)
                 Button(app.redoTitle ?? "Redo") { app.redo() }
                     .keyboardShortcut("z", modifiers: [.command, .shift])
             }
-            CommandGroup(replacing: .appSettings) {
+        }
+        CommandGroup(replacing: .appSettings) {
+            if let app = focused {
                 Button("Settings…") { app.showSettings = true }
                     .keyboardShortcut(",", modifiers: .command)
             }
-            CommandGroup(after: .toolbar) {
+        }
+        CommandGroup(after: .toolbar) {
+            if let app = focused {
                 Button(app.showInfo ? "Hide Info Panel" : "Show Info Panel") { app.showInfo.toggle() }
                     .keyboardShortcut("i", modifiers: [.command, .option])
                 Button(app.showShortcuts ? "Hide Keyboard Shortcuts" : "Show Keyboard Shortcuts") { app.showShortcuts.toggle() }
@@ -59,7 +92,9 @@ import SwiftUI
                 Button("Customize Toolbar…") { app.showCustomize = true }
                 Button("Restore Toolbar Defaults") { app.toolbarModel.restoreDefaults() }
             }
-            CommandMenu("Commands") {
+        }
+        CommandMenu("Commands") {
+            if let app = focused {
                 Menu("Open with") {
                     ForEach(app.openApps(for: app.active.selection), id: \.self) { appURL in
                         Button(FileManager.default.displayName(atPath: appURL.path)) {
@@ -126,7 +161,9 @@ import SwiftUI
                 Button("Compare Folders…") { app.compareFolders() }
                 Button("Synchronize…") { app.synchronize() }
             }
-            CommandGroup(replacing: .saveItem) {
+        }
+        CommandGroup(replacing: .saveItem) {
+            if let app = focused {
                 Button("Close Tab") { app.closeTab() }
                     .keyboardShortcut("w", modifiers: .command)
             }
