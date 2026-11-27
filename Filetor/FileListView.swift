@@ -50,8 +50,21 @@ struct FileListView: View {
         }
     }
 
-    @ViewBuilder
     private var table: some View {
+        tableContent.overlay {
+            if pane.isOpening {
+                VStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("Opening folder…")
+                        .font(.system(size: 13 * scale))
+                        .foregroundStyle(Color.primary.opacity(0.55))
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var tableContent: some View {
         if pane.viewMode == 1 {
             IconGridView(pane: pane, scale: scale, foldersFirst: foldersFirst, gridIconSize: gridIconSide, showExtensions: showExtensions, iconPreviews: iconPreviews, themed: themedFolders, tint: FolderTint.index(folderColor))
         } else if pane.viewMode == 2 {

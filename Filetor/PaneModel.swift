@@ -158,15 +158,16 @@ final class PaneModel: Identifiable {
         let hidden = showHidden
         let keys = FileItem.keys
         Task { [weak self] in
-            let urls = await Task.detached(priority: .userInitiated) { () -> [URL] in
-                (try? FileManager.default.contentsOfDirectory(
+            let list = await Task.detached(priority: .userInitiated) { () -> [FileItem] in
+                let urls = (try? FileManager.default.contentsOfDirectory(
                     at: dir, includingPropertiesForKeys: keys, options: hidden ? [] : [.skipsHiddenFiles]
                 )) ?? []
+                return urls.map { FileItem(url: $0) }
             }.value
             guard let self else { return }
             self.loading.remove(dir)
             guard self.expanded.contains(dir) else { return }
-            self.children[dir] = urls.map { FileItem(url: $0) }
+            self.children[dir] = list
         }
     }
 
@@ -215,7 +216,7 @@ final class PaneModel: Identifiable {
         filter = ""
         aiQuery = nil
         aiMessage = nil
-        load()
+        loadInBackground()
     }
 
     func goBack() {
@@ -223,7 +224,7 @@ final class PaneModel: Identifiable {
         clearTag()
         forwardStack.append(currentURL)
         currentURL = prev
-        load()
+        loadInBackground()
     }
 
     func goForward() {
@@ -231,7 +232,7 @@ final class PaneModel: Identifiable {
         clearTag()
         backStack.append(currentURL)
         currentURL = next
-        load()
+        loadInBackground()
     }
 
     func goUp() {
@@ -257,6 +258,65 @@ final class PaneModel: Identifiable {
     }
 
     func load() { reload(keepSelection: false) }
+
+    @ObservationIgnored private var loadGeneration = 0
+    /// True while a folder is being read in the background and the list has already been cleared for it.
+    var isOpening = false
+    @ObservationIgnored private var openingDone = true
+
+    /// Opens the folder shown now without blocking the window: it is read off the main thread, and the old rows
+    /// stay until the new ones are ready. A network disk (especially while it is busy with a copy) can take seconds.
+    func loadInBackground() {
+        selection.removeAll()
+        loadGeneration += 1
+        let generation = loadGeneration
+        let dir = currentURL
+        let hidden = showHidden
+        // A quick folder keeps the old rows until the new ones arrive (no flicker); a slow one clears the list
+        // so the old rows are not shown under the new path.
+        Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(150))
+            guard let self, generation == self.loadGeneration, self.currentURL == dir, !self.openingDone else { return }
+            self.items = []
+            self.children = [:]
+            self.errorMessage = nil
+            self.isOpening = true
+        }
+        openingDone = false
+        Task { [weak self] in
+            let listing = await Task.detached(priority: .userInitiated) {
+                Self.readFolder(dir, hidden: hidden)
+            }.value
+            guard let self, generation == self.loadGeneration, self.currentURL == dir else { return }
+            openingDone = true
+            isOpening = false
+            if let error = listing.error {
+                items = []
+                children = [:]
+                errorMessage = error
+            } else {
+                items = listing.items
+                rebuildChildren()
+                TagStore.shared.remember(items.flatMap(\.tags))
+                lastSignature = listing.signature
+                errorMessage = nil
+            }
+            startFolderSizes()
+            startWatching()
+            if searchActive { restartSearch() }
+        }
+    }
+
+    nonisolated private static func readFolder(_ dir: URL, hidden: Bool) -> FolderListing {
+        do {
+            let urls = try FileManager.default.contentsOfDirectory(
+                at: dir, includingPropertiesForKeys: FileItem.keys, options: hidden ? [] : [.skipsHiddenFiles]
+            )
+            return FolderListing(items: urls.map { FileItem(url: $0) }, signature: signature(of: urls), error: nil)
+        } catch {
+            return FolderListing(items: [], signature: 0, error: error.localizedDescription)
+        }
+    }
 
     /// Re-reads the folder after a change made outside the app, keeping the selection.
     private func refresh() { reload(keepSelection: true) }
@@ -495,18 +555,44 @@ final class PaneModel: Identifiable {
                 guard let self, !Task.isCancelled, self.currentURL == dir else { return }
                 guard NSApplication.shared.isActive else { continue }
                 let hidden = self.showHidden
-                let sig = await Task.detached(priority: .utility) { () -> Int? in
+                let last = self.lastSignature
+                // Read the folder off the main thread: on a network disk every file costs a round trip,
+                // and a file that is being copied changes the folder every 2 seconds.
+                let listing = await Task.detached(priority: .utility) { () -> FolderListing? in
                     guard let urls = try? FileManager.default.contentsOfDirectory(
                         at: dir,
-                        includingPropertiesForKeys: [.contentModificationDateKey, .fileSizeKey, .creationDateKey, .tagNamesKey],
+                        includingPropertiesForKeys: FileItem.keys,
                         options: hidden ? [] : [.skipsHiddenFiles]
                     ) else { return nil }
-                    return Self.signature(of: urls)
+                    let sig = Self.signature(of: urls)
+                    guard sig != last else { return nil }
+                    return FolderListing(items: urls.map { FileItem(url: $0) }, signature: sig)
                 }.value
                 guard !Task.isCancelled, self.currentURL == dir else { return }
-                if let sig, sig != self.lastSignature { self.refresh() }
+                if let listing { self.applyListing(listing) }
             }
         }
+    }
+
+    /// Shows a folder that was read in the background, keeping the selection and the calculated folder sizes.
+    private func applyListing(_ listing: FolderListing) {
+        let previousSelection = selection
+        var knownSizes: [URL: Int64] = [:]
+        for item in items where item.sizeCalculated { knownSizes[item.url] = item.size }
+        items = listing.items
+        rebuildChildren()
+        TagStore.shared.remember(items.flatMap(\.tags))
+        lastSignature = listing.signature
+        errorMessage = nil
+        for i in items.indices {
+            if let size = knownSizes[items[i].url] {
+                items[i].size = size
+                items[i].sizeCalculated = true
+            }
+        }
+        let present = Set(items.map(\.url)).union(children.values.flatMap { $0.map(\.url) })
+        selection = previousSelection.filter { present.contains($0) }
+        startFolderSizes()
     }
 
     nonisolated private static func signature(of urls: [URL]) -> Int {
@@ -543,6 +629,12 @@ final class PaneModel: Identifiable {
             }
         }
     }
+}
+
+nonisolated struct FolderListing: Sendable {
+    var items: [FileItem]
+    var signature: Int
+    var error: String? = nil
 }
 
 nonisolated struct SearchBatch: Sendable {
