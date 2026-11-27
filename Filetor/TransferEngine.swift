@@ -285,9 +285,15 @@ nonisolated final class TransferEngine: @unchecked Sendable {
             return
         }
         try fm.createDirectory(at: dst, withIntermediateDirectories: false)
-        let children = try fm.contentsOfDirectory(at: src, includingPropertiesForKeys: nil, options: [])
-        for child in children {
-            try copyTree(child, to: dst.appending(path: child.lastPathComponent))
+        do {
+            let children = try fm.contentsOfDirectory(at: src, includingPropertiesForKeys: nil, options: [])
+            for child in children {
+                try copyTree(child, to: dst.appending(path: child.lastPathComponent))
+            }
+        } catch {
+            // A cancelled copy does not leave a half-copied folder behind.
+            if control.cancelled { try? fm.removeItem(at: dst) }
+            throw error
         }
         let meta = copyfile_flags_t(COPYFILE_ACL | COPYFILE_STAT | COPYFILE_XATTR)
         _ = copyfile(src.path, dst.path, nil, meta)

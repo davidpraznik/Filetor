@@ -84,7 +84,7 @@ struct ContentView: View {
             FolderAccess.askOnFirstLaunch(app)
         }
         .onChange(of: appearance) { _, v in Self.applyAppearance(v) }
-        .onChange(of: app.transfers.showsIndicator) { _, on in if !on { app.showTransfers = false } }
+        .onChange(of: app.transfers.jobs.isEmpty) { _, empty in if empty { app.showTransfers = false } }
         .tint(SettingsSheet.accents[min(max(accent, 0), SettingsSheet.accents.count - 1)])
         .navigationTitle(pane.title)
         .toolbar(removing: .sidebarToggle)

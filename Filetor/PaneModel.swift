@@ -7,9 +7,30 @@ final class PaneModel: Identifiable {
     var currentURL: URL = FileManager.default.homeDirectoryForCurrentUser
     var items: [FileItem] = []
     var selection = Set<URL>()
-    var sortOrder: [KeyPathComparator<FileItem>] = [
-        KeyPathComparator(\FileItem.name, comparator: .localizedStandard)
-    ]
+    /// Kept between launches: the sort stays as the user last set it, in every pane and tab.
+    var sortOrder: [KeyPathComparator<FileItem>] = PaneModel.savedSortOrder() {
+        didSet {
+            guard let first = sortOrder.first else { return }
+            UserDefaults.standard.set(FileTableView.Coordinator.key(for: first), forKey: "sortKey")
+            UserDefaults.standard.set(first.order == .forward, forKey: "sortAscending")
+        }
+    }
+
+    private static func savedSortOrder() -> [KeyPathComparator<FileItem>] {
+        let key = UserDefaults.standard.string(forKey: "sortKey") ?? "name"
+        let order: SortOrder = (UserDefaults.standard.object(forKey: "sortAscending") as? Bool ?? true) ? .forward : .reverse
+        switch key {
+        case "modified": return [KeyPathComparator(\FileItem.modified, order: order)]
+        case "created": return [KeyPathComparator(\FileItem.created, order: order)]
+        case "lastOpened": return [KeyPathComparator(\FileItem.lastOpened, order: order)]
+        case "added": return [KeyPathComparator(\FileItem.added, order: order)]
+        case "size": return [KeyPathComparator(\FileItem.size, order: order)]
+        case "kind": return [KeyPathComparator(\FileItem.kind, comparator: .localizedStandard, order: order)]
+        case "folder": return [KeyPathComparator(\FileItem.folder, comparator: .localizedStandard, order: order)]
+        case "tags": return [KeyPathComparator(\FileItem.tagsText, comparator: .localizedStandard, order: order)]
+        default: return [KeyPathComparator(\FileItem.name, comparator: .localizedStandard, order: order)]
+        }
+    }
     var errorMessage: String?
     var filter = "" { didSet { filterChanged() } }
     /// Search the filter text in all subfolders instead of only filtering the current folder.

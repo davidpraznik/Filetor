@@ -16,6 +16,8 @@ final class TransferJob: Identifiable {
     /// Smoothed bytes per second.
     var speed: Double = 0
     var move = false
+    /// The user stopped the transfer (or chose Stop in a conflict).
+    var wasCancelled = false
     @ObservationIgnored var conflict: ConflictChoice?
     @ObservationIgnored var items: [(src: URL, dstDir: URL)] = []
 
@@ -104,6 +106,7 @@ final class TransferManager {
             job.totalBytes = last.total
             job.speed = 0
             job.fraction = 1
+            job.wasCancelled = job.control.cancelled
             job.isFinished = true
             self?.onFinished?()
             if !engine.records.isEmpty || batch != nil { self?.onCompleted?(move, engine.records, batch) }
@@ -111,8 +114,9 @@ final class TransferManager {
                 self?.onError?(failures.joined(separator: "\n"))
             }
             // A transfer with failed items stays in the list so it can be retried.
+            // A cancelled one stays a few seconds, so the list says what was already copied.
             if job.failedFiles.isEmpty {
-                try? await Task.sleep(for: .seconds(1))
+                try? await Task.sleep(for: .seconds(job.wasCancelled ? 6 : 1))
                 self?.jobs.removeAll { $0.id == job.id }
             }
         }
@@ -212,13 +216,15 @@ struct TransfersOverlay: View {
 
 struct TransferList: View {
     let manager: TransferManager
+    @AppStorage("textSize") private var textSize = 1
+    private var s: CGFloat { UIScale.value(textSize) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text("Transfers").font(.callout.weight(.medium))
+                Text("Transfers").font(.system(size: 14 * s, weight: .medium))
                 Spacer(minLength: 8)
-                Text(summary).font(.caption).foregroundStyle(.secondary)
+                Text(summary).font(.system(size: 12 * s)).foregroundStyle(.secondary)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
@@ -229,12 +235,12 @@ struct TransferList: View {
             if manager.jobs.count > 5 {
                 Divider()
                 Text("\(manager.jobs.count - 5) more transfers")
-                    .font(.caption)
+                    .font(.system(size: 12 * s))
                     .foregroundStyle(.secondary)
                     .padding(12)
             }
         }
-        .frame(width: 380)
+        .frame(width: 380 * s)
     }
 
     private var summary: String {
@@ -270,6 +276,11 @@ private struct ThinBar: View {
 private struct TransferJobView: View {
     let job: TransferJob
     let manager: TransferManager
+    @AppStorage("textSize") private var textSize = 1
+    private var s: CGFloat { UIScale.value(textSize) }
+
+    /// A stopped transfer without failures shows only its title and one line of text.
+    private var isCancelledOnly: Bool { job.isFinished && job.wasCancelled && failed == 0 }
 
     private var failed: Int { job.failedFiles.count }
     private var doneCount: Int { job.files.filter { $0.state == .done }.count }
@@ -301,7 +312,7 @@ private struct TransferJobView: View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 8) {
                 Text(job.title)
-                    .font(.callout.weight(.medium))
+                    .font(.system(size: 14 * s, weight: .medium))
                     .lineLimit(1)
                     .truncationMode(.middle)
                 Spacer(minLength: 0)
@@ -309,7 +320,7 @@ private struct TransferJobView: View {
                     if failed > 0 {
                         Button("Retry") { manager.retry(job) }
                             .buttonStyle(.link)
-                            .font(.caption)
+                            .font(.system(size: 12 * s))
                         Button { manager.dismiss(job) } label: { Image(systemName: "xmark") }
                             .buttonStyle(.plain)
                             .foregroundStyle(.secondary)
@@ -331,6 +342,9 @@ private struct TransferJobView: View {
                     if job.isFinished {
                         if failed > 0 {
                             Text("\(failed) of \(job.files.count) failed").foregroundStyle(.red)
+                        } else if job.wasCancelled {
+                            Text("Cancelled, \(doneCount) of \(job.files.count) files \(job.move ? "moved" : "copied")")
+                                .foregroundStyle(.secondary)
                         } else {
                             Text("Finished").foregroundStyle(.secondary)
                         }
@@ -344,23 +358,25 @@ private struct TransferJobView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                .font(.caption)
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(visibleFiles) { file in
-                        TransferFileRow(file: file, move: job.move)
+                .font(.system(size: 12 * s))
+                if !isCancelledOnly {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(visibleFiles) { file in
+                            TransferFileRow(file: file, move: job.move)
+                        }
+                        if hiddenWaiting > 0 {
+                            Text("\(hiddenWaiting) more waiting")
+                                .font(.system(size: 12 * s))
+                                .foregroundStyle(.secondary)
+                                .padding(.leading, 26)
+                                .padding(.vertical, 3)
+                        }
                     }
-                    if hiddenWaiting > 0 {
-                        Text("\(hiddenWaiting) more waiting")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .padding(.leading, 26)
-                            .padding(.vertical, 3)
-                    }
+                    .padding(.top, 4)
                 }
-                .padding(.top, 4)
             } else if !job.isFinished {
                 Text(job.currentName)
-                    .font(.caption)
+                    .font(.system(size: 12 * s))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -373,6 +389,8 @@ private struct TransferJobView: View {
 private struct TransferFileRow: View {
     let file: TransferFile
     let move: Bool
+    @AppStorage("textSize") private var textSize = 1
+    private var s: CGFloat { UIScale.value(textSize) }
 
     private var trailing: String {
         switch file.state {
@@ -391,7 +409,7 @@ private struct TransferFileRow: View {
     private var icon: some View {
         switch file.state {
         case .done:
-            Image(systemName: "checkmark").font(.caption).foregroundStyle(.secondary)
+            Image(systemName: "checkmark").font(.system(size: 12 * s)).foregroundStyle(.secondary)
         case .active:
             ProgressView().controlSize(.mini)
         case .waiting:
@@ -415,16 +433,15 @@ private struct TransferFileRow: View {
                     ThinBar(value: Double(file.done) / Double(max(file.size, 1)), height: 3)
                 }
                 if file.state == .failed, let message = file.message {
-                    Text(message).font(.caption).foregroundStyle(.red)
+                    Text(message).font(.system(size: 12 * s)).foregroundStyle(.red)
                 }
             }
             Spacer(minLength: 8)
             Text(trailing)
-                .font(.caption)
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
         }
-        .font(.callout)
+        .font(.system(size: 12 * s))
         .padding(.vertical, 3)
     }
 }
