@@ -27,7 +27,7 @@ Type what you need in the search field, for example "VectorCraft and Illustrator
 - Folders open in place as a tree in the list view, with a disclosure arrow.
 - Columns of the list view (order and width) stay the same in both panes.
 - Open folders and tabs of both panes are restored when you start the app.
-- Sidebar with favorites, mounted disks (with eject), cloud storage (iCloud Drive, Google Drive, Dropbox, OneDrive) and network servers. Drag the sections to put them in your own order.
+- Sidebar with Favorites, Locations (cloud storage such as iCloud Drive, Google Drive, Dropbox and OneDrive, disks with eject, and Network), Searches and Tags. Drag the sections, and the rows inside Locations, into your own order. Each part can be shown or hidden in Settings > Window, or with a right-click in the sidebar.
 - Right-click a folder in the path bar for the same actions as in the list.
 - Quick Look on the space bar. On a folder or an archive, the space bar shows what is inside it.
 - Themed folder icons (optional): Finder or Glass folders, with symbols for common folders such as Documents, Downloads, Pictures, Designs, Code, Public and Applications. Choose a multicolour or a single folder colour (Settings > Appearance).
@@ -37,7 +37,8 @@ Type what you need in the search field, for example "VectorCraft and Illustrator
 - Copy to Other Pane, Move to Other Pane, Copy to… and Move to… with a progress indicator and conflict handling.
 - Undo and redo (⌘Z, ⇧⌘Z) for rename, move to Trash, new file or folder, copy and move.
 - Rename in the row, like in Finder.
-- Network servers (SMB and AFP) appear under Shared automatically. Connect to Server opens any address.
+- Network in Locations lists the file servers found on your local network. Double-click a server to connect; macOS asks for the login.
+- Go to Folder (⇧⌘G) is one popup for a path and for a server address (smb://, afp://, nfs://, https://). It lists recent folders and servers, and the examples in it can be clicked to start typing.
 
 **Tools Finder does not have**
 - Batch rename with a live preview: replace text, add text, numbering.
@@ -61,6 +62,12 @@ Type what you need in the search field, for example "VectorCraft and Illustrator
 - It works with a local model through [Ollama](https://ollama.com) or with any OpenAI-compatible service (OpenAI, Gemini, Mistral, Groq, OpenRouter and others), set up in Settings > AI.
 - Only the sentence you type and today's date are sent. File names and file contents are never sent. With a local model nothing leaves your Mac.
 - The API key for a service is stored in the macOS Keychain.
+
+**Sort Downloads (optional, off by default)**
+- Sorts the files in a folder into subfolders, the ones already there and the ones that arrive later: Images, Documents, Archives, Installers, Video, Audio, 3D Models, Fonts, Design and Scripts.
+- Works on Downloads and on any other folders you add, also on an external disk. A folder on a disk that is not connected waits until the disk is back.
+- Your own rules are checked first: match an extension or a part of the file name and choose the folder. Settings > Sorting.
+- Files that are still being downloaded are left alone, an existing file is never overwritten, and every move shows a notice with Undo.
 
 **Projects, tags and searches**
 - New Project Folder creates a project folder with a set of subfolders from a template (Design project, Web project, Empty). You can turn subfolders on or off, rename them and save your own templates.
@@ -103,10 +110,11 @@ Type what you need in the search field, for example "VectorCraft and Illustrator
   <img src="docs/filetor-settings-v6.png" alt="Filetor Settings: Appearance and AI" width="100%">
 </p>
 
-- General: launch at login, open with two panes, show hidden files, automatic update check.
+- General: launch at login, open with two panes, show hidden files, search the local network for servers, automatic update check.
 - Appearance: Light, Dark or Auto. Accent colour (seven colours). Text size from S to Turbo. Folders: Finder or Glass, and a multicolour or single folder colour.
 - Rows: row size (one slider for the icon and the row), alternating row colours, keep folders on top, calculate all folder sizes, file extensions, icon previews.
-- Window: status bar with item count and free space, sidebar, info panel, toolbar items and labels.
+- Window: status bar with item count and free space, sidebar, info panel, which sidebar sections are shown, toolbar items and labels.
+- Sorting: turn Downloads sorting on, choose the folders and set your own rules.
 - Folder Access: shows whether Full Disk Access is on and opens the page in System Settings where you turn it on.
 - AI: provider (Off, Local or Other), address, key and model, and a connection test.
 - About: version and links.
@@ -143,7 +151,7 @@ The builds are not signed with a paid Apple Developer account, so macOS drops th
 
 ## Privacy
 
-Filetor does not collect any telemetry, analytics or usage data. The only request the app makes to the internet by itself is the update check, which asks GitHub for the latest release number. You can turn it off in Settings. On your local network, Filetor looks for file servers (Bonjour, and a check of port 445 on the addresses of your own subnet) so they can be listed under Shared. This search only connects to devices in your home or office network and sends nothing to anyone. macOS asks for permission for it the first time. AI search is off by default. If you turn it on, only the sentence you type and today's date are sent, to the service you choose, or to a model on your own Mac. Everything else (files, tags, searches, settings) stays on your Mac.
+Filetor does not collect any telemetry, analytics or usage data. The only request the app makes to the internet by itself is the update check, which asks GitHub for the latest release number. You can turn it off in Settings. On your local network, Filetor looks for file servers (Bonjour, and a check of port 445 on the addresses of your own subnet) so they can be listed under Network. This search only connects to devices in your home or office network and sends nothing to anyone. macOS asks for permission for it the first time. You can turn it off in Settings > General. AI search is off by default. If you turn it on, only the sentence you type and today's date are sent, to the service you choose, or to a model on your own Mac. Everything else (files, tags, searches, settings) stays on your Mac.
 
 ## Safety
 
