@@ -52,6 +52,10 @@ struct FileListView: View {
 
     private var table: some View {
         tableContent.overlay {
+            if pane.showsNetwork {
+                NetworkListView(app: app, scale: scale)
+                    .background(Color(nsColor: .textBackgroundColor))
+            }
             if pane.isOpening {
                 VStack(spacing: 8) {
                     ProgressView().controlSize(.small)
@@ -105,6 +109,10 @@ struct FileListView: View {
     }
 
     private var statusText: String {
+        if pane.showsNetwork {
+            let n = app.network.servers.count
+            return n == 1 ? "1 server" : "\(n) servers"
+        }
         if let tag = pane.tagFilter {
             let n = pane.sortedItems.count
             let count = n == 1 ? "1 item" : "\(n) items"

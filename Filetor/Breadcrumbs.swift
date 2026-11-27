@@ -164,6 +164,7 @@ struct BreadcrumbBar: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .focusEffectDisabled()
             .help("New Tab")
         }
         .frame(height: 44 * s)

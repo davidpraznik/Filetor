@@ -12,6 +12,8 @@ struct ToolDef: Identifiable {
     let symbol: String
     var needsSelection = false
     var needsDual = false
+    /// Longer tooltip when the title alone does not say enough.
+    var tip: String? = nil
     var isOn: ((AppModel) -> Bool)? = nil
     let run: (AppModel) -> Void
 }
@@ -83,8 +85,8 @@ enum ToolCatalog {
                 run: { $0.airDrop($0.active.selection) }),
         ToolDef(id: "info", title: "Info Panel", symbol: "info.circle",
                 isOn: { $0.showInfo }, run: { $0.showInfo.toggle() }),
-        ToolDef(id: "connect", title: "Connect", symbol: "globe",
-                run: { $0.showConnect = true }),
+        ToolDef(id: "connect", title: "Go to", symbol: "arrow.right.circle",
+                tip: "Go to a folder or connect to a server (⇧⌘G)", run: { $0.openGoTo() }),
         ToolDef(id: "customize", title: "Settings", symbol: "gearshape",
                 run: { $0.showSettings = true }),
     ]
@@ -120,7 +122,7 @@ final class ToolbarModel {
     init() {
         if let data = UserDefaults.standard.data(forKey: Self.key),
            let decoded = try? JSONDecoder().decode([ToolbarEntry].self, from: data) {
-            entries = decoded.filter { $0.kind != "folderSize" }
+            entries = decoded.filter { $0.kind != "folderSize" && $0.kind != "server" }
         } else {
             entries = ToolCatalog.defaultKinds.map { ToolbarEntry(kind: $0) }
         }

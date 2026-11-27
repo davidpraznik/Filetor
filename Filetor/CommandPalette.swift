@@ -50,7 +50,7 @@ struct AppCommand: Identifiable {
         AppCommand(id: "largeFiles", title: "Large Files…") { $0.findLargeFiles() },
         AppCommand(id: "compare", title: "Compare Folders…") { $0.compareFolders() },
         AppCommand(id: "sync", title: "Synchronize…") { $0.synchronize() },
-        AppCommand(id: "connect", title: "Connect to Server…") { $0.showConnect = true },
+        AppCommand(id: "connect", title: "Connect to Server…") { $0.openConnect() },
         AppCommand(id: "copyPath", title: "Copy Path") { $0.copyPath() },
         AppCommand(id: "swap", title: "Swap Panes") { $0.swapPanes() },
         AppCommand(id: "reload", title: "Reload", keys: "⌥ ⌘ R") { $0.active.load() },

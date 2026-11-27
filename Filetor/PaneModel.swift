@@ -32,6 +32,8 @@ final class PaneModel: Identifiable {
         }
     }
     var errorMessage: String?
+    /// The pane shows the list of network servers instead of a folder.
+    var showsNetwork = false
     var filter = "" { didSet { filterChanged() } }
     /// Search the filter text in all subfolders instead of only filtering the current folder.
     var searchSubfolders = UserDefaults.standard.bool(forKey: "searchSubfolders") {
@@ -225,6 +227,7 @@ final class PaneModel: Identifiable {
     }
 
     func navigate(to url: URL) {
+        showsNetwork = false
         let target = url.standardizedFileURL
         if tagFilter != nil {
             clearTag()
@@ -241,6 +244,7 @@ final class PaneModel: Identifiable {
     }
 
     func goBack() {
+        if showsNetwork { showsNetwork = false; return }
         guard let prev = backStack.popLast() else { return }
         clearTag()
         forwardStack.append(currentURL)
@@ -249,6 +253,7 @@ final class PaneModel: Identifiable {
     }
 
     func goForward() {
+        showsNetwork = false
         guard let next = forwardStack.popLast() else { return }
         clearTag()
         backStack.append(currentURL)

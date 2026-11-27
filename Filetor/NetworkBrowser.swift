@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import Observation
 import AppKit
 import NetFS
@@ -17,6 +18,10 @@ struct NetworkServer: Identifiable, Hashable {
 @Observable
 final class NetworkBrowser: NSObject, NetServiceBrowserDelegate, NetServiceDelegate {
     var servers: [NetworkServer] = []
+    /// Name of the server that is being mounted right now (nil when no connection is in progress).
+    var connecting: String?
+    /// The first search of the network has finished.
+    var searched = false
     var onError: ((String) -> Void)?
     var onMounted: ((URL) -> Void)?
     @ObservationIgnored private let ownName = Host.current().localizedName ?? ProcessInfo.processInfo.hostName
@@ -25,8 +30,24 @@ final class NetworkBrowser: NSObject, NetServiceBrowserDelegate, NetServiceDeleg
     @ObservationIgnored private var resolving: [NetService] = []
     @ObservationIgnored private var scanTask: Task<Void, Never>?
 
+    var isEnabled: Bool { UserDefaults.standard.object(forKey: "networkSearch") as? Bool ?? true }
+
+    /// Turns the search on or off (Settings > General > Network).
+    func setEnabled(_ on: Bool) {
+        if on {
+            start()
+        } else {
+            scanTask?.cancel()
+            scanTask = nil
+            browsers.forEach { $0.stop() }
+            browsers.removeAll()
+            servers.removeAll()
+            searched = false
+        }
+    }
+
     func start() {
-        guard browsers.isEmpty else { return }
+        guard isEnabled, browsers.isEmpty else { return }
         for type in ["_smb._tcp.", "_afp._tcp."] {
             let b = NetServiceBrowser()
             b.delegate = self
@@ -56,6 +77,7 @@ final class NetworkBrowser: NSObject, NetServiceBrowserDelegate, NetServiceDeleg
 
     /// Mounts the share without opening a Finder window; macOS asks for the login itself.
     private func mount(_ url: URL, name: String) {
+        connecting = name
         Task.detached {
             let opts = NSMutableDictionary()
             opts["UIOption"] = "AllowUI"
@@ -63,6 +85,7 @@ final class NetworkBrowser: NSObject, NetServiceBrowserDelegate, NetServiceDeleg
             let rc = NetFSMountURLSync(url as CFURL, nil, nil, nil, opts, nil, &points)
             let paths = (points?.takeRetainedValue() as? [String]) ?? []
             await MainActor.run {
+                self.connecting = nil
                 if let first = paths.first {
                     self.onMounted?(URL(filePath: first))
                 } else if rc != 0 && rc != -128 && rc != 17 {
@@ -98,9 +121,10 @@ final class NetworkBrowser: NSObject, NetServiceBrowserDelegate, NetServiceDeleg
         }
         result.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
         if result != servers { servers = result }
+        searched = true
     }
 
-    private final class OneShot: @unchecked Sendable {
+    nonisolated private final class OneShot: @unchecked Sendable {
         private let lock = NSLock()
         private var fired = false
         func fire() -> Bool {
@@ -257,6 +281,68 @@ final class NetworkBrowser: NSObject, NetServiceBrowserDelegate, NetServiceDeleg
         Task { @MainActor in
             self.resolving.removeAll { ObjectIdentifier($0) == key }
             self.onError?("Couldn't reach \(name).")
+        }
+    }
+}
+
+/// The list of file servers found on the network, shown in a pane (sidebar > Shared > Network).
+struct NetworkListView: View {
+    let app: AppModel
+    let scale: CGFloat
+    @AppStorage("networkSearch") private var networkSearch = true
+    @State private var selected: String?
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Image(systemName: "globe").foregroundStyle(Color.filetor)
+                Text("Network").font(.system(size: 13 * scale, weight: .medium))
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8 * scale)
+            Divider()
+            if app.network.servers.isEmpty {
+                VStack(spacing: 8) {
+                    if !networkSearch {
+                        Text("Network search is off. Turn it on in Settings > General.")
+                    } else if app.network.searched {
+                        Text("No servers found. Use Connect to Server to enter an address.")
+                    } else {
+                        ProgressView().controlSize(.small)
+                        Text("Searching the network…")
+                    }
+                }
+                .font(.system(size: 13 * scale))
+                .foregroundStyle(Color.primary.opacity(0.55))
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(app.network.servers) { server in
+                            HStack(spacing: 10) {
+                                Image(systemName: "desktopcomputer")
+                                    .font(.system(size: 14 * scale))
+                                    .foregroundStyle(Color.filetor)
+                                    .frame(width: 22 * scale)
+                                Text(server.name).font(.system(size: 13 * scale)).lineLimit(1)
+                                Spacer(minLength: 8)
+                                Text("Server")
+                                    .font(.system(size: 13 * scale))
+                                    .foregroundStyle(Color.primary.opacity(0.55))
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 6 * scale)
+                            .background(selected == server.id ? Color.filetor.opacity(0.18) : Color.clear)
+                            .contentShape(Rectangle())
+                            .onTapGesture(count: 2) { app.network.connect(server) }
+                            .onTapGesture { selected = server.id }
+                            .help("Double-click to connect to \(server.name)")
+                        }
+                    }
+                }
+            }
         }
     }
 }

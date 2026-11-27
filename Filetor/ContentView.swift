@@ -68,6 +68,34 @@ struct ContentView: View {
         .overlay(alignment: .bottom) {
             ActionsHint(app: app).padding(.bottom, 52)
         }
+        .overlay(alignment: .bottom) {
+            if let text = app.sortNotice {
+                HStack(spacing: 12) {
+                    Text(text)
+                    if app.sortUndo != nil {
+                        Button("Undo") {
+                            if let error = app.sortUndo?() { app.alert = error }
+                            app.sortUndo = nil
+                            withAnimation { app.sortNotice = nil }
+                            app.refresh()
+                        }
+                        .buttonStyle(.plain)
+                        .fontWeight(.semibold)
+                    }
+                    Button { withAnimation { app.sortNotice = nil } } label: { Text("✕") }
+                        .buttonStyle(.plain)
+                        .opacity(0.6)
+                }
+                .font(.system(size: 14 * UIScale.value(textSize)))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 16)
+                .frame(height: 40 * UIScale.value(textSize))
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color(white: 0.11)))
+                .shadow(color: .black.opacity(0.28), radius: 15, y: 10)
+                .padding(.bottom, 52)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
+        }
         .overlay {
             ZStack {
                 if app.showTransfers { TransfersOverlay(app: app).transition(.opacity) }
@@ -125,6 +153,24 @@ struct ContentView: View {
             app.network.onError = { app.alert = $0 }
             app.network.onMounted = { app.active.navigate(to: $0) }
             app.network.start()
+            app.downloadSorter.onMoved = { text, undo in
+                app.sortUndo = undo
+                withAnimation { app.sortNotice = text }
+                Task {
+                    try? await Task.sleep(for: .seconds(10))
+                    if app.sortNotice == text { withAnimation { app.sortNotice = nil } }
+                }
+                app.refresh()
+            }
+            app.downloadSorter.onNote = { text in
+                app.sortUndo = nil
+                withAnimation { app.sortNotice = text }
+                Task {
+                    try? await Task.sleep(for: .seconds(10))
+                    if app.sortNotice == text { withAnimation { app.sortNotice = nil } }
+                }
+            }
+            app.downloadSorter.start()
         }
         .task {
             // At launch and then every 6 hours while the app stays open.
@@ -136,9 +182,6 @@ struct ContentView: View {
             }
         }
         .modifier(ToolPanels(app: app))
-        .floatingPanel(isPresented: $model.showConnect) {
-            ConnectSheet(app: app)
-        }
         .floatingPanel(isPresented: $model.showSettings) {
             SettingsSheet(app: app)
         }
@@ -211,6 +254,7 @@ struct TabStrip: View {
             }
             Button { group.newTab() } label: { Image(systemName: "plus") }
                 .buttonStyle(.plain)
+                .focusEffectDisabled()
                 .padding(.horizontal, 6)
                 .help("New Tab")
             Spacer()

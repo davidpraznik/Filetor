@@ -2,7 +2,7 @@ import SwiftUI
 import ServiceManagement
 import UniformTypeIdentifiers
 
-private enum SettingsPage: String, CaseIterable, Identifiable {
+enum SettingsPage: String, CaseIterable, Identifiable {
     case general = "General", appearance = "Appearance", rows = "Rows", window = "Window", folderAccess = "Folder Access", ai = "AI", about = "About"
     var id: String { rawValue }
     var symbol: String {
@@ -36,8 +36,12 @@ struct SettingsSheet: View {
     @AppStorage("statusBar") private var statusBar = true
     @AppStorage("startDual") private var startDual = true
     @AppStorage("showSidebar") private var showSidebar = true
+    @AppStorage("hiddenSidebarSections") private var hiddenSections = ""
     @AppStorage("showHidden") private var showHidden = false
     @AppStorage("autoUpdate") private var autoUpdate = true
+    @AppStorage("networkSearch") private var networkSearch = true
+    @AppStorage("sortDownloads") private var sortDownloads = false
+    @State private var sortFolders = DownloadsSorter.folders.map(\.path)
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var page: SettingsPage = .general
     @AppStorage("aiProvider") private var aiProvider = 0
@@ -209,6 +213,37 @@ struct SettingsSheet: View {
                 switchRow("Open with two panes", isOn: $startDual)
                 switchRow("Show hidden files", isOn: $showHidden, last: true)
             }
+            group("Downloads") {
+                switchRow("Sort files into folders automatically", subtitle: "Images, Documents, Archives, Installers, Video, Audio, 3D Models, Fonts, Design and Scripts get their own folder. The files already there are sorted when you switch it on, then new ones as they arrive.", isOn: Binding(
+                    get: { sortDownloads },
+                    set: { on in
+                        sortDownloads = on
+                        app.downloadSorter.setEnabled(on)
+                    }), last: sortFolders.isEmpty && !sortDownloads)
+                ForEach(Array(sortFolders.enumerated()), id: \.element) { index, path in
+                    row((path as NSString).abbreviatingWithTildeInPath, nil, last: false) {
+                        Button("Remove") {
+                            sortFolders.remove(at: index)
+                            DownloadsSorter.folders = sortFolders.map { URL(filePath: $0, directoryHint: .isDirectory) }
+                        }
+                        .buttonStyle(PathsButtonStyle(scale: s))
+                    }
+                }
+                row("Folders to sort", "Each folder gets the same subfolders. A folder on a disk that is not connected waits until it is back.", last: true) {
+                    Button("Add Folder…") {
+                        let panel = NSOpenPanel()
+                        panel.canChooseDirectories = true
+                        panel.canChooseFiles = false
+                        panel.allowsMultipleSelection = false
+                        panel.prompt = "Add"
+                        guard panel.runModal() == .OK, let url = panel.url, !sortFolders.contains(url.path) else { return }
+                        sortFolders.append(url.path)
+                        DownloadsSorter.folders = sortFolders.map { URL(filePath: $0, directoryHint: .isDirectory) }
+                        if sortDownloads { app.downloadSorter.rescan() }
+                    }
+                    .buttonStyle(PathsButtonStyle(scale: s))
+                }
+            }
             group("Updates") {
                 switchRow("Check for updates automatically", isOn: $autoUpdate)
                 if case .available(let version, let url) = app.updater.state {
@@ -225,6 +260,17 @@ struct SettingsSheet: View {
                             .disabled(app.updater.checking)
                     }
                 }
+            }
+            group("Network") {
+                switchRow("Search the local network for servers",
+                          subtitle: "Lists file servers in your network under Shared and in Network. Nothing is sent out of your network.",
+                          isOn: Binding(
+                            get: { networkSearch },
+                            set: { on in
+                                networkSearch = on
+                                app.network.setEnabled(on)
+                            }),
+                          last: true)
             }
         case .appearance:
             group {
@@ -268,6 +314,20 @@ struct SettingsSheet: View {
                 switchRow("Show item count and free space", isOn: $statusBar)
                 switchRow("Show sidebar", isOn: $showSidebar)
                 switchRow("Show info panel", isOn: $am.showInfo, last: true)
+            }
+            group("Sidebar sections") {
+                let items: [(id: String, title: String)] = [
+                    ("Favorites", "Favorites"), ("Cloud", "Cloud Storage"), ("Disks", "Disks"),
+                    ("Network", "Network"), ("Searches", "Searches"), ("Tags", "Tags")]
+                ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                    switchRow(item.title, isOn: Binding(
+                        get: { !hiddenSections.split(separator: ",").map(String.init).contains(item.id) },
+                        set: { on in
+                            var set = Set(hiddenSections.split(separator: ",").map(String.init))
+                            if on { set.remove(item.id) } else { set.insert(item.id) }
+                            hiddenSections = set.sorted().joined(separator: ",")
+                        }), last: index == items.count - 1)
+                }
             }
             group("Toolbar") {
                 row("Customize toolbar") {
@@ -397,7 +457,13 @@ struct SettingsSheet: View {
         .frame(height: min(500 * s, maxHeight))
         .font(.system(size: 13 * s))
         .background { Button("") { dismiss() }.keyboardShortcut(.cancelAction).opacity(0).frame(width: 0, height: 0) }
-        .onAppear { apiKeyText = AIStore.apiKey() }
+        .onAppear {
+            apiKeyText = AIStore.apiKey()
+            if let requested = app.settingsPage {
+                page = requested
+                app.settingsPage = nil
+            }
+        }
         .onChange(of: showHidden) { _, v in app.setHidden(v) }
         .onChange(of: calcFolderSizes) { _, _ in app.reloadPanes() }
         .onChange(of: app.toolbarModel.showLabels) { _, _ in app.toolbarModel.save() }

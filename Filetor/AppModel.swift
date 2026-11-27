@@ -49,6 +49,8 @@ final class AppModel {
         (UserDefaults.standard.object(forKey: "showSidebar") as? Bool ?? true) ? .all : .detailOnly
     var showCustomize = false
     var showSettings = false
+    /// Page to open when Settings is shown from somewhere else (nil = the last one).
+    var settingsPage: SettingsPage?
     var showShortcuts = false
     var focusSearch = 0
     /// True while the toolbar Search field is on screen.
@@ -69,12 +71,26 @@ final class AppModel {
     func openGoTo() {
         showPalette = false
         showSearchPopup = false
+        goToPrefill = nil
+        showGoTo = true
+    }
+    /// Text the Go to / Connect popup starts with (nil = the current folder).
+    var goToPrefill: String?
+    /// Connect to Server: the same popup as Go to Folder, starting with "smb://".
+    func openConnect() {
+        showPalette = false
+        showSearchPopup = false
+        goToPrefill = "smb://"
         showGoTo = true
     }
     var showPalette = false
     var showConnect = false
     let favorites = FavoritesStore()
     let network = NetworkBrowser()
+    let downloadSorter = DownloadsSorter()
+    /// Notice after Downloads files were sorted, with the closure that moves them back.
+    var sortNotice: String?
+    @ObservationIgnored var sortUndo: (() -> String?)?
     /// Files being renamed together in the batch rename dialog.
     var batchRename: [URL]?
     /// Info panel on the right (Get Info). Persisted.

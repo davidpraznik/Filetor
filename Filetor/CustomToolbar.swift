@@ -260,7 +260,7 @@ struct CustomToolbar: View {
                 }
                 .buttonStyle(ToolButtonStyle())
                 .disabled(isDisabled(def))
-                .help(def.title)
+                .help(def.tip ?? def.title)
             }
         }
     }

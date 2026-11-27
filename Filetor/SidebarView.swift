@@ -26,14 +26,45 @@ struct SidebarView: View {
         collapsedRaw = set.joined(separator: ",")
     }
 
-    @AppStorage("sidebarOrder") private var orderRaw = "Devices,Cloud,Shared,Favorites"
-    @AppStorage("recentServers") private var recentServersRaw = ""
+    @AppStorage("sidebarOrder") private var orderRaw = "Favorites,Locations,Searches,Tags"
+    @AppStorage("hiddenSidebarSections") private var hiddenRaw = ""
     @State private var draggingSection: String?
     /// Order while dragging; a plain @State so moves animate (the saved order follows).
     @State private var liveOrder: [String]?
     @State private var draggingFavorite: URL?
+    @State private var hoveredHeader: String?
 
-    private static let allSections = ["Devices", "Cloud", "Shared", "Favorites", "Searches", "Tags"]
+    /// Sections that can be dragged; Locations holds Cloud, Disks and Network.
+    private static let allSections = ["Favorites", "Locations", "Searches", "Tags"]
+    /// Entry types that can be shown or hidden (Settings > Window and the right-click menu).
+    private static let hideable: [(id: String, title: String)] = [
+        ("Favorites", "Favorites"), ("Cloud", "Cloud Storage"), ("Disks", "Disks"),
+        ("Network", "Network"), ("Searches", "Searches"), ("Tags", "Tags")]
+    private var locationsVisible: Bool {
+        ["Cloud", "Disks", "Network"].contains { !hiddenSections.contains($0) }
+    }
+
+    private var hiddenSections: Set<String> { Set(hiddenRaw.split(separator: ",").map(String.init)) }
+
+    private func setHidden(_ title: String, _ hidden: Bool) {
+        var set = hiddenSections
+        if hidden { set.insert(title) } else { set.remove(title) }
+        hiddenRaw = set.sorted().joined(separator: ",")
+    }
+
+    /// Right-click anywhere in the sidebar: tick the sections to show.
+    @ViewBuilder private var sectionsMenu: some View {
+        ForEach(Self.hideable, id: \.id) { item in
+            Toggle(item.title, isOn: Binding(
+                get: { !hiddenSections.contains(item.id) },
+                set: { setHidden(item.id, !$0) }))
+        }
+        Divider()
+        Button("Sidebar Settings…") {
+            app.settingsPage = SettingsPage.window
+            app.showSettings = true
+        }
+    }
 
     /// Saved section order; unknown names are dropped and missing ones appended.
     private var order: [String] {
@@ -61,6 +92,7 @@ struct SidebarView: View {
             try? await Task.sleep(for: .milliseconds(150))
             draggingSection = nil
             draggingFavorite = nil
+            draggingLocation = nil
         }
     }
 
@@ -86,27 +118,128 @@ struct SidebarView: View {
 
     @ViewBuilder private func sectionView(_ title: String) -> some View {
         switch title {
-        case "Devices":
-            section("Devices", devices, ejectable: true)
-                .onDrop(of: [.text], delegate: sectionDelegate("Devices"))
-        case "Cloud":
-            if !cloud.isEmpty {
-                section("Cloud", cloud)
-                    .onDrop(of: [.text], delegate: sectionDelegate("Cloud"))
+        case "Locations":
+            if locationsVisible {
+                locationsSection
+                    .onDrop(of: [.text], delegate: sectionDelegate("Locations"))
             }
-        case "Shared":
-            shared
-                .onDrop(of: [.text], delegate: sectionDelegate("Shared"))
         case "Searches":
-            searchesSection
-                .onDrop(of: [.text], delegate: sectionDelegate("Searches"))
+            if !hiddenSections.contains("Searches") {
+                searchesSection
+                    .onDrop(of: [.text], delegate: sectionDelegate("Searches"))
+            }
         case "Tags":
-            tagsSection
-                .onDrop(of: [.text], delegate: sectionDelegate("Tags"))
+            if !hiddenSections.contains("Tags") {
+                tagsSection
+                    .onDrop(of: [.text], delegate: sectionDelegate("Tags"))
+            }
         default:
-            section("Favorites", favorites, isFavorites: true)
-                .onDrop(of: [.text, .fileURL], delegate: sectionDelegate("Favorites", urls: true))
+            if !hiddenSections.contains("Favorites") {
+                section("Favorites", favorites, isFavorites: true)
+                    .onDrop(of: [.text, .fileURL], delegate: sectionDelegate("Favorites", urls: true))
+            }
         }
+    }
+
+    /// One row of the Locations section: a cloud provider, a disk or Network.
+    private struct LocationEntry: Identifiable {
+        let id: String
+        let place: Place?      // nil = Network
+        let ejectable: Bool
+    }
+
+    @AppStorage("locationsOrder") private var locOrderRaw = ""
+    @State private var draggingLocation: String?
+    /// Order while dragging; a plain @State so the moves animate like the Favorites (the saved order follows).
+    @State private var liveLocOrder: [String]?
+
+    /// Default order (cloud, disks, Network) with the saved manual order applied on top.
+    private var locationEntries: [LocationEntry] {
+        var all: [LocationEntry] = []
+        if !hiddenSections.contains("Cloud") {
+            all += cloud.map { LocationEntry(id: "cloud:" + $0.url.path, place: $0, ejectable: false) }
+        }
+        if !hiddenSections.contains("Disks") {
+            all += devices.map { LocationEntry(id: "disk:" + $0.url.path, place: $0, ejectable: $0.url.path != "/") }
+        }
+        if !hiddenSections.contains("Network") {
+            all.append(LocationEntry(id: "network", place: nil, ejectable: false))
+        }
+        let saved = liveLocOrder ?? locOrderRaw.split(separator: "\n").map(String.init)
+        var out: [LocationEntry] = []
+        for id in saved { if let e = all.first(where: { $0.id == id }), !out.contains(where: { $0.id == id }) { out.append(e) } }
+        for e in all where !out.contains(where: { $0.id == e.id }) { out.append(e) }
+        return out
+    }
+
+    private func moveLocation(_ id: String, onto target: String) {
+        var ids = locationEntries.map(\.id)
+        guard let from = ids.firstIndex(of: id), let to = ids.firstIndex(of: target), from != to else { return }
+        ids.remove(at: from)
+        ids.insert(id, at: to)
+        liveLocOrder = ids
+        locOrderRaw = ids.joined(separator: "\n")
+    }
+
+    /// Cloud storage, disks (with eject) and Network in one section, like Finder; rows can be dragged into any order.
+    private var locationsSection: some View {
+        VStack(alignment: .leading, spacing: 2 * s) {
+            sectionHeader("Locations")
+            ForEach(isCollapsed("Locations") ? [] : locationEntries) { e in
+                locationRow(e)
+            }
+        }
+    }
+
+    @ViewBuilder private func locationRow(_ e: LocationEntry) -> some View {
+        let name = e.place?.name ?? "Network"
+        let on: Bool = {
+            if let p = e.place {
+                return app.active.tagFilter == nil && !app.active.showsNetwork
+                    && app.active.currentURL.standardizedFileURL.path == p.url.standardizedFileURL.path
+            }
+            return app.active.showsNetwork
+        }()
+        HStack(spacing: 8 * s) {
+            Image(systemName: e.place?.icon ?? "globe")
+                .font(.system(size: 12.5 * s))
+                .foregroundStyle(Color.filetor)
+                .frame(width: 20 * s)
+            Text(name)
+                .font(.system(size: 13 * s))
+                .foregroundStyle(Color.primary)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+            if e.ejectable, let p = e.place {
+                Button { app.eject(p.url) } label: {
+                    Image(systemName: "eject.fill")
+                        .font(.system(size: 10 * s))
+                        .foregroundStyle(Color.primary.opacity(0.5))
+                }
+                .buttonStyle(.plain)
+                .help("Eject")
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5 * s)
+        .background(RoundedRectangle(cornerRadius: 7).fill(on ? Color.primary.opacity(0.09) : Color.clear))
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if let p = e.place { app.active.navigate(to: p.url) } else { app.active.showsNetwork = true }
+        }
+        .onDrag {
+            draggingLocation = e.id
+            watchDragEnd()
+            return NSItemProvider(object: e.id as NSString)
+        } preview: {
+            dragCard(name)
+        }
+        .onDrop(of: [.text], delegate: LocationRowDropDelegate(
+            id: e.id,
+            dragging: $draggingLocation,
+            move: { from, to in withAnimation(.easeInOut(duration: 0.22)) { moveLocation(from, onto: to) } },
+            draggingSection: draggingSection,
+            moveSection: { from in withAnimation(.easeInOut(duration: 0.22)) { moveSection(from, onto: "Locations") } }))
     }
 
     @State private var tick = 0
@@ -143,6 +276,7 @@ struct SidebarView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .scrollContentBackground(.hidden)
+        .contextMenu { sectionsMenu }
         .background(Color.primary.opacity(0.04))
         .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didMountNotification)) { _ in tick += 1 }
         .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didUnmountNotification)) { _ in tick += 1 }
@@ -155,12 +289,19 @@ struct SidebarView: View {
             Image(systemName: isCollapsed(title) ? "chevron.right" : "chevron.down")
                 .font(.system(size: 8 * s, weight: .bold))
             Spacer(minLength: 0)
+            if hoveredHeader == title && title != "Locations" {
+                Text("Hide")
+                    .font(.system(size: 11.5 * s))
+                    .onTapGesture { setHidden(title, true) }
+                    .help("Hide \(title) from the sidebar. Show it again with a right-click in the sidebar.")
+            }
         }
         .foregroundStyle(Color.primary.opacity(0.4))
         .padding(.horizontal, 8)
         .padding(.bottom, 2 * s)
         .contentShape(Rectangle())
         .onTapGesture { withAnimation(.easeInOut(duration: 0.15)) { toggleCollapsed(title) } }
+        .onHover { hoveredHeader = $0 ? title : (hoveredHeader == title ? nil : hoveredHeader) }
         .onDrag {
             draggingSection = title
             watchDragEnd()
@@ -170,7 +311,7 @@ struct SidebarView: View {
         }
     }
 
-    private func section(_ title: String, _ places: [Place], ejectable: Bool = false, isFavorites: Bool = false) -> some View {
+    private func section(_ title: String, _ places: [Place], ejectURLs: Set<URL> = [], isFavorites: Bool = false, trailing: AnyView? = nil) -> some View {
         VStack(alignment: .leading, spacing: 2 * s) {
             sectionHeader(title)
             ForEach(isCollapsed(title) ? [] : places) { p in
@@ -195,7 +336,7 @@ struct SidebarView: View {
                         .foregroundStyle(Color.primary)
                         .lineLimit(1)
                     Spacer(minLength: 0)
-                    if ejectable && p.url.path != "/" {
+                    if ejectURLs.contains(p.url) {
                         Button { app.eject(p.url) } label: {
                             Image(systemName: "eject.fill")
                                 .font(.system(size: 10 * s))
@@ -215,6 +356,7 @@ struct SidebarView: View {
                 .modifier(FavoriteRowModifier(enabled: isFavorites, url: p.url, app: app, dragging: $draggingFavorite,
                                               card: dragCard(p.name), onDragStart: watchDragEnd))
             }
+            if !isCollapsed(title), let trailing { trailing }
         }
     }
 
@@ -323,75 +465,6 @@ struct SidebarView: View {
     }
 
     @State private var dropTargeted = false
-
-    /// Addresses typed in Connect to Server, minus servers the network search already lists.
-    private var recentServerList: [String] {
-        recentServersRaw.split(separator: "\n").map(String.init).filter { address in
-            guard let host = URL(string: address)?.host?.lowercased() else { return true }
-            return !app.network.servers.contains { host.hasPrefix($0.name.lowercased()) }
-        }
-    }
-
-    private func serverTitle(_ address: String) -> String {
-        guard let url = URL(string: address), let host = url.host else { return address }
-        let path = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        return path.isEmpty ? host : "\(host)/\(path)"
-    }
-
-    private var shared: some View {
-        VStack(alignment: .leading, spacing: 2 * s) {
-            sectionHeader("Shared")
-            if !isCollapsed("Shared") {
-            HStack(spacing: 8 * s) {
-                Image(systemName: "plus")
-                    .font(.system(size: 12.5 * s))
-                    .foregroundStyle(Color.filetor)
-                    .frame(width: 20 * s)
-                Text("Connect to Server").font(.system(size: 13 * s))
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5 * s)
-            .contentShape(Rectangle())
-            .onTapGesture { app.showConnect = true }
-            ForEach(app.network.servers) { server in
-                HStack(spacing: 8 * s) {
-                    Image(systemName: "desktopcomputer")
-                        .font(.system(size: 12.5 * s))
-                        .foregroundStyle(Color.filetor)
-                        .frame(width: 20 * s)
-                    Text(server.name).font(.system(size: 13 * s)).lineLimit(1)
-                    Spacer(minLength: 0)
-                }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 5 * s)
-                .contentShape(Rectangle())
-                .help("Connect to \(server.name)")
-                .onTapGesture { app.network.connect(server) }
-            }
-            ForEach(recentServerList, id: \.self) { address in
-                HStack(spacing: 8 * s) {
-                    Image(systemName: "desktopcomputer")
-                        .font(.system(size: 12.5 * s))
-                        .foregroundStyle(Color.filetor)
-                        .frame(width: 20 * s)
-                    Text(serverTitle(address)).font(.system(size: 13 * s)).lineLimit(1)
-                    Spacer(minLength: 0)
-                }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 5 * s)
-                .contentShape(Rectangle())
-                .help("Connect to \(address)")
-                .onTapGesture { if let url = URL(string: address) { app.network.connect(address: url) } }
-                .contextMenu {
-                    Button("Remove from Sidebar") {
-                        recentServersRaw = recentServerList.filter { $0 != address }.joined(separator: "\n")
-                    }
-                }
-            }
-            }
-        }
-    }
 
     private var dropStack: some View {
         VStack(alignment: .leading, spacing: 6 * s) {
@@ -535,6 +608,29 @@ struct SectionDropDelegate: DropDelegate {
         if draggingFavorite != nil { return true }
         guard acceptsURLs else { return false }
         addDroppedURLs(info, to: favorites, before: nil)
+        return true
+    }
+}
+
+/// Dropping on a Locations row: a row being moved slides into place; a dragged section is handed to the section order.
+struct LocationRowDropDelegate: DropDelegate {
+    let id: String
+    @Binding var dragging: String?
+    let move: (String, String) -> Void
+    let draggingSection: String?
+    let moveSection: (String) -> Void
+
+    func validateDrop(info: DropInfo) -> Bool { dragging != nil || draggingSection != nil }
+
+    func dropEntered(info: DropInfo) {
+        if let d = dragging { if d != id { move(d, id) } }
+        else if let s = draggingSection, s != "Locations" { moveSection(s) }
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? { DropProposal(operation: .move) }
+
+    func performDrop(info: DropInfo) -> Bool {
+        dragging = nil
         return true
     }
 }
