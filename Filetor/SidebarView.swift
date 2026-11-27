@@ -27,6 +27,7 @@ struct SidebarView: View {
     }
 
     @AppStorage("sidebarOrder") private var orderRaw = "Devices,Cloud,Shared,Favorites"
+    @AppStorage("recentServers") private var recentServersRaw = ""
     @State private var draggingSection: String?
     /// Order while dragging; a plain @State so moves animate (the saved order follows).
     @State private var liveOrder: [String]?
@@ -323,6 +324,20 @@ struct SidebarView: View {
 
     @State private var dropTargeted = false
 
+    /// Addresses typed in Connect to Server, minus servers the network search already lists.
+    private var recentServerList: [String] {
+        recentServersRaw.split(separator: "\n").map(String.init).filter { address in
+            guard let host = URL(string: address)?.host?.lowercased() else { return true }
+            return !app.network.servers.contains { host.hasPrefix($0.name.lowercased()) }
+        }
+    }
+
+    private func serverTitle(_ address: String) -> String {
+        guard let url = URL(string: address), let host = url.host else { return address }
+        let path = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        return path.isEmpty ? host : "\(host)/\(path)"
+    }
+
     private var shared: some View {
         VStack(alignment: .leading, spacing: 2 * s) {
             sectionHeader("Shared")
@@ -353,6 +368,26 @@ struct SidebarView: View {
                 .contentShape(Rectangle())
                 .help("Connect to \(server.name)")
                 .onTapGesture { app.network.connect(server) }
+            }
+            ForEach(recentServerList, id: \.self) { address in
+                HStack(spacing: 8 * s) {
+                    Image(systemName: "desktopcomputer")
+                        .font(.system(size: 12.5 * s))
+                        .foregroundStyle(Color.filetor)
+                        .frame(width: 20 * s)
+                    Text(serverTitle(address)).font(.system(size: 13 * s)).lineLimit(1)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5 * s)
+                .contentShape(Rectangle())
+                .help("Connect to \(address)")
+                .onTapGesture { if let url = URL(string: address) { app.network.connect(address: url) } }
+                .contextMenu {
+                    Button("Remove from Sidebar") {
+                        recentServersRaw = recentServerList.filter { $0 != address }.joined(separator: "\n")
+                    }
+                }
             }
             }
         }

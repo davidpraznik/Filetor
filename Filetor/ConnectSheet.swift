@@ -51,7 +51,7 @@ struct ConnectSheet: View {
         var list = recents.filter { $0 != text }
         list.insert(text, at: 0)
         recentRaw = list.prefix(5).joined(separator: "\n")
-        NSWorkspace.shared.open(url)   // macOS asks for the login and mounts the share
+        app.network.connect(address: url)   // macOS asks for the login and mounts the share
         dismiss()
     }
 }
