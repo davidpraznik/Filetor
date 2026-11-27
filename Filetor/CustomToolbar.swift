@@ -82,7 +82,7 @@ struct CustomToolbar: View {
 
     var body: some View {
         GeometryReader { geo in
-            let transfersWidth: CGFloat = app.transfers.hasActive ? 70 * s : 0
+            let transfersWidth: CGFloat = app.transfers.showsIndicator ? 70 * s : 0
             let base = geo.size.width - 28 - transfersWidth
             let first = split(available: base)
             let parts = first.hidden.isEmpty ? first : split(available: base - 40 * s)
@@ -114,7 +114,7 @@ struct CustomToolbar: View {
                     .frame(width: 36 * s)
                     .help("More")
                 }
-                if app.transfers.hasActive {
+                if app.transfers.showsIndicator {
                     TransferButton(app: app, showLabel: model.showLabels)
                 }
             }
@@ -270,34 +270,35 @@ struct TransferButton: View {
     let app: AppModel
     let showLabel: Bool
     @AppStorage("textSize") private var textSize = 1
-    @State private var show = false
 
     var body: some View {
         let s = UIScale.value(textSize)
-        Button { show.toggle() } label: {
+        // Only failed transfers are left: the ring turns orange and the label says Failed.
+        let failedOnly = !app.transfers.hasActive
+        let orange = Color(red: 0.976, green: 0.451, blue: 0.086)
+        Button { app.showTransfers.toggle() } label: {
             VStack(spacing: 3) {
                 ZStack {
                     Circle().stroke(Color.primary.opacity(0.18), lineWidth: 1.2 * s)
                     Circle()
-                        .trim(from: 0, to: max(0.04, min(1, app.transfers.overall)))
-                        .stroke(Color.filetor, style: StrokeStyle(lineWidth: 1.6 * s, lineCap: .round))
+                        .trim(from: 0, to: failedOnly ? 1 : max(0.04, min(1, app.transfers.overall)))
+                        .stroke(failedOnly ? orange : Color.filetor, style: StrokeStyle(lineWidth: 1.6 * s, lineCap: .round))
                         .rotationEffect(.degrees(-90))
                         .animation(.linear(duration: 0.25), value: app.transfers.overall)
-                    Image(systemName: "arrow.left.arrow.right")
-                        .font(.system(size: 8.5 * s, weight: .regular))
-                        .foregroundStyle(Color.primary.opacity(0.6))
+                    Image(systemName: failedOnly ? "exclamationmark" : "arrow.left.arrow.right")
+                        .font(.system(size: 8.5 * s, weight: failedOnly ? .semibold : .regular))
+                        .foregroundStyle(failedOnly ? orange : Color.primary.opacity(0.6))
                 }
                 .frame(width: 21 * s, height: 21 * s)
                 .frame(width: 42 * s, height: 30 * s)
                 if showLabel {
-                    Text("\(Int(app.transfers.overall * 100))%").font(.system(size: 10.5 * s)).foregroundStyle(Color.primary.opacity(0.6))
+                    Text(failedOnly ? "Failed" : "\(Int(app.transfers.overall * 100))%").font(.system(size: 10.5 * s)).foregroundStyle(Color.primary.opacity(0.6))
                 }
             }
             .frame(width: 58 * s)
         }
         .buttonStyle(ToolButtonStyle())
         .help("Transfers")
-        .popover(isPresented: $show) { TransferList(manager: app.transfers) }
     }
 }
 

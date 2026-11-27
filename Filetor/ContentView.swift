@@ -70,6 +70,7 @@ struct ContentView: View {
         }
         .overlay {
             ZStack {
+                if app.showTransfers { TransfersOverlay(app: app).transition(.opacity) }
                 if app.showPalette { CommandPalette(app: app).transition(.opacity) }
                 if app.showSearchPopup { SearchPopup(app: app).transition(.opacity) }
                 if app.showGoTo { GoToFolderPopup(app: app).transition(.opacity) }
@@ -83,6 +84,7 @@ struct ContentView: View {
             FolderAccess.askOnFirstLaunch(app)
         }
         .onChange(of: appearance) { _, v in Self.applyAppearance(v) }
+        .onChange(of: app.transfers.showsIndicator) { _, on in if !on { app.showTransfers = false } }
         .tint(SettingsSheet.accents[min(max(accent, 0), SettingsSheet.accents.count - 1)])
         .navigationTitle(pane.title)
         .toolbar(removing: .sidebarToggle)
@@ -97,7 +99,9 @@ struct ContentView: View {
                 Button("Enclosing") { app.active.goUp() }.keyboardShortcut(.upArrow, modifiers: .command)
                 Button("Hidden") { app.active.toggleHidden() }.keyboardShortcut(".", modifiers: [.command, .shift])
                 Button("Reload") { app.active.load() }.keyboardShortcut("r", modifiers: [.command, .option])
-                if app.showPalette {
+                if app.showTransfers {
+                    Button("Close Transfers") { app.showTransfers = false }.keyboardShortcut(.escape, modifiers: [])
+                } else if app.showPalette {
                     Button("Close Palette") { app.showPalette = false }.keyboardShortcut(.escape, modifiers: [])
                 } else if app.showGoTo {
                     Button("Close Go to Folder") { app.showGoTo = false }.keyboardShortcut(.escape, modifiers: [])

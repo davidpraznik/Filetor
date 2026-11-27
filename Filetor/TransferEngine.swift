@@ -22,6 +22,24 @@ nonisolated struct ConflictAnswer: Sendable {
     let applyToAll: Bool
 }
 
+/// One top-level item of a transfer (a file or a folder) and how far it got.
+nonisolated struct TransferFile: Identifiable, Equatable, Sendable {
+    enum State: Sendable { case waiting, active, done, failed, cancelled }
+    let id: Int
+    let name: String
+    let size: Int64
+    var done: Int64 = 0
+    var state: State = .waiting
+    var message: String?
+}
+
+nonisolated struct TransferSnapshot: Sendable {
+    var done: Int64
+    var total: Int64
+    var name: String
+    var files: [TransferFile]
+}
+
 /// Thread-safe state shared between the background engine and the UI.
 nonisolated final class TransferControl: @unchecked Sendable {
     private let lock = NSLock()
@@ -29,17 +47,50 @@ nonisolated final class TransferControl: @unchecked Sendable {
     private var _done: Int64 = 0
     private var _total: Int64 = 1
     private var _name = ""
+    private var _files: [TransferFile] = []
+    private var _current = -1
 
     var cancelled: Bool {
         get { lock.lock(); defer { lock.unlock() }; return _cancelled }
         set { lock.lock(); _cancelled = newValue; lock.unlock() }
     }
-    func add(_ delta: Int64) { lock.lock(); _done += delta; lock.unlock() }
+    func add(_ delta: Int64) {
+        lock.lock()
+        _done += delta
+        if _files.indices.contains(_current) {
+            _files[_current].done = min(_files[_current].done + delta, max(_files[_current].size, _files[_current].done))
+        }
+        lock.unlock()
+    }
     func setTotal(_ v: Int64) { lock.lock(); _total = max(v, 1); lock.unlock() }
     func setName(_ n: String) { lock.lock(); _name = n; lock.unlock() }
-    var snapshot: (done: Int64, total: Int64, name: String) {
+    func setFiles(_ f: [TransferFile]) { lock.lock(); _files = f; lock.unlock() }
+    func begin(_ i: Int) {
+        lock.lock()
+        _current = i
+        if _files.indices.contains(i) { _files[i].state = .active }
+        lock.unlock()
+    }
+    func finish(_ i: Int, _ state: TransferFile.State, message: String? = nil) {
+        lock.lock()
+        if _files.indices.contains(i) {
+            _files[i].state = state
+            _files[i].message = message
+            if state == .done { _files[i].done = _files[i].size }
+        }
+        lock.unlock()
+    }
+    /// Items that never started, or were stopped halfway, when the transfer was cancelled.
+    func cancelRemaining() {
+        lock.lock()
+        for i in _files.indices where _files[i].state == .waiting || _files[i].state == .active {
+            _files[i].state = .cancelled
+        }
+        lock.unlock()
+    }
+    var snapshot: TransferSnapshot {
         lock.lock(); defer { lock.unlock() }
-        return (_done, _total, _name)
+        return TransferSnapshot(done: _done, total: _total, name: _name, files: _files)
     }
 }
 
@@ -87,22 +138,48 @@ nonisolated final class TransferEngine: @unchecked Sendable {
     /// Returns a list of human readable failures (empty when everything went fine).
     func run(items: [(src: URL, dstDir: URL)]) async -> [String] {
         var failures: [String] = []
-        var total: Int64 = 0
-        for item in items { total += size(of: item.src) }
-        control.setTotal(total)
+        let sizes = items.map { size(of: $0.src) }
+        control.setFiles(items.enumerated().map {
+            TransferFile(id: $0.offset, name: $0.element.src.lastPathComponent, size: sizes[$0.offset])
+        })
+        control.setTotal(sizes.reduce(0, +))
 
-        for item in items {
+        for (i, item) in items.enumerated() {
             if control.cancelled { break }
+            control.begin(i)
             do {
                 try await process(item.src, into: item.dstDir)
+                control.finish(i, .done)
             } catch is CancellationError {
                 control.cancelled = true
+                control.finish(i, .cancelled)
                 break
             } catch {
-                failures.append("\(item.src.lastPathComponent): \(error.localizedDescription)")
+                let message = friendly(error)
+                failures.append("\(item.src.lastPathComponent): \(message)")
+                control.finish(i, .failed, message: message)
             }
         }
+        control.cancelRemaining()
         return failures
+    }
+
+    /// A short reason for the transfer list. A lost network connection is the most common one.
+    private func friendly(_ error: Error) -> String {
+        let ns = error as NSError
+        if ns.domain == NSPOSIXErrorDomain {
+            switch Int32(ns.code) {
+            case ENOTCONN, EHOSTDOWN, EHOSTUNREACH, ENETDOWN, ENETUNREACH, ETIMEDOUT, ECONNRESET, ECONNABORTED, ESTALE:
+                return "The connection to the disk was lost"
+            case ENOSPC:
+                return "Not enough free space on the destination"
+            case EACCES, EPERM:
+                return "No permission to write to the destination"
+            default:
+                break
+            }
+        }
+        return error.localizedDescription
     }
 
     // MARK: Core logic

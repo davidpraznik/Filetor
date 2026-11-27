@@ -64,6 +64,8 @@ final class AppModel {
     }
     var showSearchPopup = false
     var showGoTo = false
+    /// The list of running and failed transfers, opened from the toolbar indicator.
+    var showTransfers = false
     func openGoTo() {
         showPalette = false
         showSearchPopup = false
